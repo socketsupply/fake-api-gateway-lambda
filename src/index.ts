@@ -8,6 +8,8 @@ import * as url from 'url';
 
 import { WaitGroup } from './sync-wait-group';
 
+const WORKER_PATH = path.join(__dirname, 'worker.js');
+
 export interface Callback {
     (err?: Error): void;
 }
@@ -27,25 +29,219 @@ export interface PendingRequest {
     id: string;
 }
 
-const WORKER_PATH = path.join(__dirname, 'worker.js');
+interface WorkerInfo {
+    proc: childProcess.ChildProcess;
+    handlingRequest: boolean;
+}
+
+interface WorkerPoolHandler {
+    hasPendingRequest(id: string): boolean;
+    handleLambdaResult(id: string, result: LambdaResult): void;
+}
+
+interface Unrefable {
+    unref(): void;
+}
+
+class WorkerPool {
+    private readonly workers: WorkerInfo[];
+    private readonly maxWorkers: number;
+    private readonly handlers: WorkerPoolHandler[];
+    private readonly knownRoutes: Dictionary<string>[];
+
+    private freeWorkerWG: WaitGroup | null;
+
+    constructor() {
+        this.maxWorkers = 10;
+
+        this.workers = [];
+        this.knownRoutes = [];
+        this.handlers = [];
+        this.freeWorkerWG = null;
+    }
+
+    register(
+        gatewayId: string,
+        routes: Dictionary<string>,
+        handler: WorkerPoolHandler
+    ): void {
+        if ('__id__' in routes) {
+            throw new Error('the key `__id__` is reserved in routes');
+        }
+
+        routes['__id__'] = gatewayId;
+
+        this.knownRoutes.push(routes);
+        this.handlers.push(handler);
+
+        for (const w of this.workers) {
+            w.proc.send({
+                message: 'addRoutes',
+                routes
+            });
+        }
+    }
+
+    deregister(
+        _gatewayId: string,
+        routes: Dictionary<string>,
+        handler: WorkerPoolHandler
+    ): void {
+        this.knownRoutes.splice(this.knownRoutes.indexOf(routes), 1);
+        this.handlers.splice(this.handlers.indexOf(handler), 1);
+
+        for (const w of this.workers) {
+            w.proc.send({
+                message: 'removeRoutes',
+                routes
+            });
+        }
+    }
+
+    private async getFreeWorker(): Promise<WorkerInfo> {
+        for (const w of this.workers) {
+            if (!w.handlingRequest) {
+                w.handlingRequest = true;
+                return w;
+            }
+        }
+
+        if (this.workers.length < this.maxWorkers) {
+            const w = this.spawnWorker();
+            w.handlingRequest = true;
+            return w;
+        }
+
+        await this.waitForFreeWorker();
+        return this.getFreeWorker();
+    }
+
+    private async waitForFreeWorker(): Promise<void> {
+        if (this.freeWorkerWG) {
+            return this.freeWorkerWG.wait();
+        }
+
+        this.freeWorkerWG = new WaitGroup();
+        this.freeWorkerWG.add(1);
+        return this.freeWorkerWG.wait();
+    }
+
+    async dispatch(
+        id: string,
+        eventObject: object
+    ): Promise<void> {
+        const w = await this.getFreeWorker();
+        w.proc.send({
+            message: 'event',
+            id,
+            eventObject
+        });
+    }
+
+    private spawnWorker(): WorkerInfo {
+        const proc = childProcess.spawn(
+            process.execPath,
+            [WORKER_PATH],
+            {
+                stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+                detached: false
+            }
+        );
+
+        /**
+         * Since this is a workerpool we unref the child processes
+         * so that they do not keep the process open. This is because
+         * we are pooling these child processes globally between
+         * many instances of the FakeApiGatewayLambda instances.
+         */
+        proc.unref();
+        (<Unrefable> <unknown> proc.channel).unref();
+
+        const info = {
+            proc,
+            handlingRequest: false
+        };
+        this.workers.push(info);
+
+        if (proc.stdout) {
+            (<Unrefable> <unknown> proc.stdout).unref();
+            proc.stdout.pipe(process.stdout);
+        }
+        if (proc.stderr) {
+            (<Unrefable> <unknown> proc.stderr).unref();
+            proc.stderr.pipe(process.stderr);
+        }
+        proc.on('message', (msg: Dictionary<unknown>) => {
+            this.handleMessage(msg);
+        });
+
+        proc.once('exit', (code: number) => {
+            if (code !== 0) {
+                throw new Error('worker process exited non-zero');
+            }
+        });
+
+        proc.send({
+            message: 'start',
+            knownRoutes: this.knownRoutes
+        });
+        return info;
+    }
+
+    private handleMessage(
+        msg: Dictionary<unknown>
+    ): void {
+        // tslint:disable-next-line: strict-boolean-expressions
+        if (!msg || typeof msg !== 'object') {
+            throw new Error('bad data type from child process');
+        }
+
+        const messageType = msg['message'];
+        if (messageType !== 'result') {
+            throw new Error('bad data type from child process');
+        }
+
+        const id = msg['id'];
+        if (typeof id !== 'string') {
+            throw new Error('bad data type from child process');
+        }
+
+        const resultObj = msg['result'];
+        if (!checkResult(resultObj)) {
+            console.log('not result');
+            throw new Error('bad data type from child process');
+        }
+
+        for (const h of this.handlers) {
+            if (h.hasPendingRequest(id)) {
+                h.handleLambdaResult(id, resultObj);
+                break;
+            }
+        }
+    }
+}
 
 export class FakeApiGatewayLambda {
     private readonly port: number;
     private readonly routes: Dictionary<string>;
     private readonly workerPool: WorkerPool;
     private httpServer: http.Server | null;
+    private readonly gatewayId: string;
     hostPort: string | null;
+
+    private static readonly WORKER_POOL: WorkerPool = new WorkerPool();
 
     private readonly pendingRequests: Map<string, PendingRequest>;
 
     constructor(options: Options) {
         this.httpServer = http.createServer();
         this.port = options.port || 0;
-        this.routes = options.routes;
+        this.routes = {...options.routes};
         this.hostPort = null;
         this.pendingRequests = new Map();
+        this.gatewayId = cuuid();
 
-        this.workerPool = new WorkerPool(this.routes, this);
+        this.workerPool = FakeApiGatewayLambda.WORKER_POOL;
     }
 
     async bootstrap(): Promise<string> {
@@ -65,6 +261,12 @@ export class FakeApiGatewayLambda {
             server.listen(this.port, cb);
         })();
 
+        /**
+         * We want to register that these routes should be handled
+         * by the following lambdas to the WORKER_POOL.
+         */
+        this.workerPool.register(this.gatewayId, this.routes, this);
+
         const addr = this.httpServer.address();
         if (!addr || typeof addr === 'string') {
             throw new Error('invalid http server address');
@@ -83,7 +285,18 @@ export class FakeApiGatewayLambda {
         await util.promisify((cb: Callback) => {
             server.close(cb);
         })();
+
+        /**
+         * Here we want to tell the WORKER_POOL to stop routing
+         * these URLs to the lambdas.
+         */
+        this.workerPool.deregister(this.gatewayId, this.routes, this);
+
         this.httpServer = null;
+    }
+
+    hasPendingRequest(id: string): boolean {
+        return this.pendingRequests.has(id);
     }
 
     handleLambdaResult(id: string, result: LambdaResult): void {
@@ -103,8 +316,10 @@ export class FakeApiGatewayLambda {
         for (const key of Object.keys(result.headers)) {
             res.setHeader(key, result.headers[key]);
         }
-        for (const key of Object.keys(result.multiValueHeaders)) {
-            res.setHeader(key, result.multiValueHeaders[key]);
+        if (result.multiValueHeaders) {
+            for (const key of Object.keys(result.multiValueHeaders)) {
+                res.setHeader(key, result.multiValueHeaders[key]);
+            }
         }
 
         if (result.isBase64Encoded) {
@@ -170,142 +385,11 @@ export class FakeApiGatewayLambda {
     }
 }
 
-interface WorkerInfo {
-    proc: childProcess.ChildProcess;
-    handlingRequest: boolean;
-}
-
-interface WorkerPoolHandler {
-    handleLambdaResult(id: string, result: LambdaResult): void;
-}
-
-class WorkerPool {
-    private readonly routes: Dictionary<string>;
-    private readonly workers: WorkerInfo[];
-    private readonly maxWorkers: number;
-    private readonly handler: WorkerPoolHandler;
-
-    private freeWorkerWG: WaitGroup | null;
-
-    constructor(
-        routes: Dictionary<string>,
-        handler: WorkerPoolHandler
-    ) {
-        this.routes = routes;
-        this.maxWorkers = 10;
-
-        this.workers = [];
-        this.handler = handler;
-        this.freeWorkerWG = null;
-    }
-
-    private async getFreeWorker(): Promise<WorkerInfo> {
-        for (const w of this.workers) {
-            if (!w.handlingRequest) {
-                w.handlingRequest = true;
-                return w;
-            }
-        }
-
-        if (this.workers.length < this.maxWorkers) {
-            const w = this.spawnWorker();
-            w.handlingRequest = true;
-            return w;
-        }
-
-        await this.waitForFreeWorker();
-        return this.getFreeWorker();
-    }
-
-    private async waitForFreeWorker(): Promise<void> {
-        if (this.freeWorkerWG) {
-            return this.freeWorkerWG.wait();
-        }
-
-        this.freeWorkerWG = new WaitGroup();
-        this.freeWorkerWG.add(1);
-        return this.freeWorkerWG.wait();
-    }
-
-    async dispatch(
-        id: string,
-        eventObject: object
-    ): Promise<void> {
-        const w = await this.getFreeWorker();
-        w.proc.send({
-            message: 'event',
-            id,
-            eventObject
-        });
-    }
-
-    private spawnWorker(): WorkerInfo {
-        const proc = childProcess.spawn(
-            process.execPath,
-            [WORKER_PATH],
-            {
-                stdio: 'pipe',
-                detached: false
-            }
-        );
-
-        const info = {
-            proc,
-            handlingRequest: false
-        };
-        this.workers.push(info);
-
-        proc.stdout.pipe(process.stdout);
-        proc.stderr.pipe(process.stderr);
-        proc.on('message', (msg: Dictionary<unknown>) => {
-            this.handleMessage(msg);
-        });
-
-        proc.once('exit', (code: number) => {
-            if (code !== 0) {
-                throw new Error('worker process exited non-zero');
-            }
-        });
-
-        proc.send({
-            message: 'start',
-            routes: this.routes
-        });
-        return info;
-    }
-
-    private handleMessage(
-        msg: Dictionary<unknown>
-    ): void {
-        // tslint:disable-next-line: strict-boolean-expressions
-        if (!msg || typeof msg !== 'object') {
-            throw new Error('bad data type from child process');
-        }
-
-        const messageType = msg['message'];
-        if (messageType !== 'result') {
-            throw new Error('bad data type from child process');
-        }
-
-        const id = msg['id'];
-        if (typeof id !== 'string') {
-            throw new Error('bad data type from child process');
-        }
-
-        const resultObj = msg['result'];
-        if (!checkResult(resultObj)) {
-            throw new Error('bad data type from child process');
-        }
-
-        this.handler.handleLambdaResult(id, resultObj);
-    }
-}
-
 export interface LambdaResult {
     isBase64Encoded: boolean;
     statusCode: number;
     headers: Dictionary<string>;
-    multiValueHeaders: Dictionary<string[]>;
+    multiValueHeaders?: Dictionary<string[]>;
     body: string;
 }
 
@@ -326,8 +410,9 @@ function checkResult(
     if (typeof objValue['headers'] !== 'object') {
         return false;
     }
-    if (typeof objValue['multiValueHeaders'] !== 'object' &&
-        objValue['multiValueHeaders'] !== null
+    // tslint:disable-next-line: strict-boolean-expressions
+    if (objValue['multiValueHeaders'] &&
+        typeof objValue['multiValueHeaders'] !== 'object'
     ) {
         return false;
     }

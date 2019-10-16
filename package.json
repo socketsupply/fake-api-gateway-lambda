@@ -24,6 +24,7 @@
     "aws-sdk": "2.549.0",
     "collapsed-assert": "1.0.3",
     "dtslint": "github:Raynos/dtslint#v0.7.6-pin-typescript-2",
+    "node-fetch": "2.6.0",
     "nyc": "13.3.0",
     "opn": "1.0.1",
     "tape": "4.10.2",

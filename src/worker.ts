@@ -16,12 +16,12 @@ interface LambdaResult {
     isBase64Encoded: boolean;
     statusCode: number;
     headers: Dictionary<string>;
-    multiValueHeaders: Dictionary<string[]>;
+    multiValueHeaders?: Dictionary<string[]>;
     body: string;
 }
 
 interface LambdaFunction {
-    (
+    handler(
         event: object,
         ctx: object,
         cb: (err: Error, result?: LambdaResult) => void
@@ -29,34 +29,44 @@ interface LambdaFunction {
 }
 
 class LambdaWorker {
-    private routes: Dictionary<string> | null;
-    private readonly lambdaFunctions: Dictionary<LambdaFunction>;
+    private readonly knownRoutes: Dictionary<string>[];
+    private routes: Dictionary<string>;
+    private readonly lambdaFunctions: Dictionary<LambdaFunction | undefined>;
 
     constructor() {
-        this.routes = null;
+        this.knownRoutes = [];
+        this.routes = {};
         this.lambdaFunctions = {};
     }
 
     handleMessage(msg: unknown): void {
         if (typeof msg !== 'object' || !msg) {
-            bail('bad data type from parent process');
+            bail('bad data type from parent process: handleMessage');
             return;
         }
 
         const objMsg = <Dictionary<unknown>> msg;
         const messageType = objMsg['message'];
+        // tslint:disable-next-line: prefer-switch
         if (messageType === 'start') {
-            const routes = objMsg['routes'];
-            if (!isStringDictionary(routes)) {
-                bail('bad data type from parent process');
+            const knownRoutes = objMsg['knownRoutes'];
+            if (!Array.isArray(knownRoutes)) {
+                bail('bad data type from parent process: start');
                 return;
             }
 
-            this.handleStartMessage(routes);
+            for (const v of knownRoutes) {
+                if (!isStringDictionary(v)) {
+                    bail('bad data type from parent process: start');
+                    return;
+                }
+            }
+
+            this.handleStartMessage(<Dictionary<string>[]> knownRoutes);
         } else if (messageType === 'event') {
             const id = objMsg['id'];
             if (typeof id !== 'string') {
-                bail('bad data type from parent process');
+                bail('bad data type from parent process: event');
                 return;
             }
 
@@ -64,25 +74,93 @@ class LambdaWorker {
             if (typeof eventObject !== 'object' ||
                 eventObject === null
             ) {
-                bail('bad data type from parent process');
+                bail('bad data type from parent process: event');
                 return;
             }
 
             this.handleEventMessage(
                 id, <Dictionary<unknown>> eventObject
             );
+        } else if (messageType === 'addRoutes') {
+            const routes = objMsg['routes'];
+            if (!isStringDictionary(routes)) {
+                bail('bad data type from parent process: addRoutes');
+                return;
+            }
+
+            this.addRoutes(routes);
+        } else if (messageType === 'removeRoutes') {
+            const routes = objMsg['routes'];
+            if (!isStringDictionary(routes)) {
+                bail('bad data type from parent process: removeRoutes');
+                return;
+            }
+
+            this.removeRoutes(routes);
         } else {
-            bail('bad data type from parent process');
+            console.log('?', objMsg);
+            bail('bad data type from parent process: unknown');
         }
     }
 
-    private handleStartMessage(routes: Dictionary<string>): void {
-        this.routes = routes;
+    private removeRoutes(routes: Dictionary<string>): void {
+        let foundIndex = -1;
+        for (let i = 0; i < this.knownRoutes.length; i++) {
+            const r = this.knownRoutes[i];
+            if (r['__id__'] === routes['__id__']) {
+                foundIndex = i;
+                break;
+            }
+        }
+
+        if (foundIndex === -1) {
+            bail('cannot removeRoutes for route that we do not know about');
+            return;
+        }
+
+        this.knownRoutes.splice(foundIndex, 1);
+        this.rebuildRoutes();
+    }
+
+    private addRoutes(routes: Dictionary<string>): void {
+        this.knownRoutes.push(routes);
 
         for (const key of Object.keys(routes)) {
-            this.lambdaFunctions[key] =
-                // tslint:disable-next-line: non-literal-require
-                <LambdaFunction> require(routes[key]);
+            if (key === '__id__') {
+                continue;
+            }
+
+            const lambdaFile = routes[key];
+            const lambdaFn = this.lambdaFunctions[lambdaFile];
+            if (!lambdaFn) {
+                this.lambdaFunctions[lambdaFile] =
+                    // tslint:disable-next-line: non-literal-require
+                    <LambdaFunction> require(lambdaFile);
+            }
+        }
+
+        this.rebuildRoutes();
+    }
+
+    private rebuildRoutes(): void {
+        /**
+         * Copy over route definition with last write wins confict
+         * resolution.
+         */
+        const result: Dictionary<string> = {};
+
+        for (const routes of this.knownRoutes) {
+            for (const key of Object.keys(routes)) {
+                result[key] = routes[key];
+            }
+        }
+
+        this.routes = result;
+    }
+
+    private handleStartMessage(knownRoutes: Dictionary<string>[]): void {
+        for (const routes of knownRoutes) {
+            this.addRoutes(routes);
         }
     }
 
@@ -96,20 +174,22 @@ class LambdaWorker {
             return;
         }
 
-        if (!this.routes) {
-            bail('got event before start msg');
-            return;
-        }
-
-        const knownRoutes = Object.keys(this.routes);
-        for (const route of knownRoutes) {
+        const routePrefixes = Object.keys(this.routes);
+        for (const route of routePrefixes) {
             if (path.startsWith(route)) {
-                this.invokeLambda(
-                    id, eventObject, this.lambdaFunctions[route]
-                );
+                const fnName = this.routes[route];
+                const lambda = this.lambdaFunctions[fnName];
+                if (!lambda) {
+                    bail('could not find lambda ...');
+                    return;
+                }
+
+                this.invokeLambda(id, eventObject, lambda);
                 return;
             }
         }
+
+        // console.log(':(');
 
         this.sendResult(id, {
             isBase64Encoded: false,
@@ -139,7 +219,7 @@ class LambdaWorker {
           * that we can borrow implementations from.
           */
 
-        const maybePromise = fn(eventObject, {}, (err, result) => {
+        const maybePromise = fn.handler(eventObject, {}, (err, result) => {
             if (!result) {
                 this.sendError(id, err);
                 return;

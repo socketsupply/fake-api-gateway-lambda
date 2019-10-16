@@ -33,6 +33,9 @@
     "include": [
       "types/**/*.d.ts",
       "src/**/*",
-      "test/**/*"
+      "test/**/*.ts"
+    ],
+    "exclude": [
+      "test/lambdas/**/*.js"
     ]
   }
