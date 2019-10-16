@@ -1,11 +1,54 @@
 {
   "name": "fake-api-gateway-lambda",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "This is a testing utility for testing your lambda functions.",
+  "main": "build/src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run build && npm run tslint -s && npm run cover -s && npm run check -s",
+    "unit-test": "node build/test/index.js",
+    "build": "tsc --pretty -p .",
+    "build:watch": "tsc --pretty -p . -w",
+    "tslint": "tslint -t stylish -p .",
+    "cover": "nyc --exclude build/test/**/*.js --reporter=html -- node ./build/test/index.js && nyc report",
+    "check": "npm run check-cover -s && npm run type-coverage -s && npm run lint-types -s && npm run verify -s",
+    "verify": "npm run verify-included -s",
+    "lint-types": "command ls ./types/ | xargs -I{} sh -c 'dtslint ./types/{} && echo linted types/{}'",
+    "type-coverage": "type-coverage --detail --strict --ignore-catch --at-least 100",
+    "check-cover": "nyc check-coverage --branches=25 --lines=50 --functions=50",
+    "verify-included": "bash scripts/verify-included.sh",
+    "view-cover": "opn ./coverage/index.html"
   },
-  "author": "",
-  "license": "ISC"
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "12.0.2",
+    "aws-sdk": "2.549.0",
+    "collapsed-assert": "1.0.3",
+    "dtslint": "github:Raynos/dtslint#v0.7.6-pin-typescript-2",
+    "nyc": "13.3.0",
+    "opn": "1.0.1",
+    "tape": "4.10.2",
+    "tape-cluster": "3.2.1",
+    "tslint": "5.16.0",
+    "tslint-microsoft-contrib": "6.2.0",
+    "type-coverage": "2.0.1",
+    "typescript": "3.4.5"
+  },
+  "author": "Raynos <raynos2@gmail.com>",
+  "repository": "git://github.com/Raynos/fake-api-gateway-lambda.git",
+  "homepage": "https://github.com/Raynos/fake-api-gateway-lambda",
+  "bugs": {
+    "url": "https://github.com/Raynos/fake-api-gateway-lambda/issues",
+    "email": "raynos2@gmail.com"
+  },
+  "contributors": [
+    {
+      "name": "Raynos"
+    }
+  ],
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/Raynos/fake-ses/raw/master/LICENSE"
+    }
+  ]
 }

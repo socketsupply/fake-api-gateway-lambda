@@ -1,0 +1,64 @@
+{
+    "extends": [
+      "dtslint/dtslint.json",
+      "tslint-microsoft-contrib/recommended"
+    ],
+    "rules": {
+      "typedef": [
+        true,
+        "member-variable-declaration",
+        "property-declaration",
+        "parameter",
+        "call-signature"
+      ],
+
+      "no-const-enum": false,
+      "no-bad-reference": true,
+      "no-declare-current-package": true,
+      "no-self-import": true,
+      "no-outside-dependencies": true,
+
+      "no-redundant-jsdoc": false,
+      "no-redundant-jsdoc-2": true,
+
+      "max-func-body-length": [true, { "ignore-comments": true }],
+
+      "import-name": false,
+      "no-relative-imports": false,
+      "prefer-template": false,
+      "no-http-string": false,
+      "no-suspicious-comment": false,
+      "no-unused-expression": true,
+      "export-name": false,
+      "no-any": true,
+      "array-type": false,
+      "strict-boolean-expressions": [
+        true,
+        "allow-null-union",
+        "allow-string",
+        "allow-number",
+        "allow-mix",
+        "allow-undefined-union",
+        "ignore-rhs"
+      ],
+      "promise-function-async": true,
+      "no-non-null-assertion": true,
+      "no-var-requires": true,
+      "await-promise": true,
+      "no-return-await": true,
+      "no-default-import": true,
+      "no-floating-promises": true,
+      "no-inferred-empty-object-type": true,
+      "no-inferrable-types": [true, "ignore-properties"],
+      "no-unbound-method": [true, "allow-typeof"],
+      "no-unsafe-any": true,
+      "restrict-plus-operands": true,
+      "use-default-type-parameter": true,
+      "prefer-readonly": true,
+      "prefer-array-literal": false,
+      "no-require-imports": true,
+      "no-unnecessary-qualifier": true,
+      "no-empty-interface": true,
+      "non-literal-fs-path": false
+    }
+  }
