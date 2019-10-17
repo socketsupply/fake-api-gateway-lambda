@@ -13,7 +13,7 @@
     "check": "npm run check-cover -s && npm run type-coverage -s && npm run lint-types -s && npm run verify -s",
     "verify": "npm run verify-included -s",
     "lint-types": "command ls ./types/ | xargs -I{} sh -c 'dtslint ./types/{} && echo linted types/{}'",
-    "type-coverage": "type-coverage --detail --strict --ignore-catch --at-least 100",
+    "type-coverage": "type-coverage --detail --strict --ignore-catch --at-least 100 --ignore-files=test/lambdas/hello.js",
     "check-cover": "nyc check-coverage --branches=25 --lines=50 --functions=50",
     "verify-included": "bash scripts/verify-included.sh",
     "view-cover": "opn ./coverage/index.html"

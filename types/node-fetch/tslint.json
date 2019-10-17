@@ -1,6 +1,6 @@
 {
   "extends": [
-    "raynos-dtslint/dtslint.json",
+    "dtslint/dtslint.json",
     "../../tslint.json"
   ],
   "rules": {

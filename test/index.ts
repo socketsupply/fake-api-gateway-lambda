@@ -2,6 +2,8 @@
 
 import { test } from './test-harness';
 
+type FetchResponse = import('node-fetch').Response;
+
 test('calling /hello with ENV vars 1', {
     env: { TEST_GREETER: 'TEST_ENV_1' }
 }, async (harness, assert) => {
@@ -44,7 +46,7 @@ test('calling /hello many times', async (harness, assert) => {
 
 test('calling /hello many times in parallel',
     async (harness, assert) => {
-        const tasks = [];
+        const tasks: Promise<FetchResponse>[] = [];
         for (let i = 0; i < 5; i++) {
             tasks.push(harness.fetch('/hello'));
         }

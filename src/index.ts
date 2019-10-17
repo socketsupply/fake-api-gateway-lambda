@@ -413,7 +413,7 @@ export class FakeApiGatewayLambda {
                 id
             });
             this.workerPool.dispatch(id, eventObject)
-                .catch((err) => {
+                .catch((err: Error) => {
                     process.nextTick(() => {
                         throw err;
                     });

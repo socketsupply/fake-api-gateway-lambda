@@ -34,6 +34,10 @@ interface LambdaFunction {
     ): Promise<LambdaResult> | void;
 }
 
+const globalRequire = <{
+    cache: Dictionary<string>
+}> require;
+
 class LambdaWorker {
     private readonly knownGatewayInfos: GatewayInfo[];
     private routes: Dictionary<string>;
@@ -59,7 +63,8 @@ class LambdaWorker {
         // tslint:disable-next-line: prefer-switch
         if (messageType === 'start') {
             const knownGatewayInfos = objMsg['knownGatewayInfos'];
-            if (!Array.isArray(knownGatewayInfos)) {
+            // tslint:disable-next-line: strict-boolean-expressions
+            if (!knownGatewayInfos) {
                 bail('bad data type from parent process: start');
                 return;
             }
@@ -147,7 +152,9 @@ class LambdaWorker {
             id, routes, env
         });
 
-        const oldCache = { ...require.cache };
+        const oldCache: Dictionary<string> = {
+            ...globalRequire.cache
+        };
 
         /**
          * Import to initialize the ENV of this worker before
@@ -169,7 +176,7 @@ class LambdaWorker {
          * is created we re-load the lambda and re-evaluate
          * the startup logic in it.
          */
-        require.cache = oldCache;
+        globalRequire.cache = oldCache;
 
         this.rebuildRoutes();
     }

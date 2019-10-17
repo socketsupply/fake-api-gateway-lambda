@@ -11,7 +11,7 @@ type FetchResponse = import('node-fetch').Response;
 type FetchRequestInit = import('node-fetch').RequestInit;
 
 interface Dictionary<T> {
-    [key: string]: T
+    [key: string]: T;
 }
 
 class TestHarness {
