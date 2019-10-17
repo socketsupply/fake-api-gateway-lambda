@@ -3,6 +3,9 @@
       "dtslint/dtslint.json",
       "tslint-microsoft-contrib/recommended"
     ],
+    "linterOptions": {
+      "exclude": ["test/lambdas/*.js"]
+    },
     "rules": {
       "typedef": [
         true,

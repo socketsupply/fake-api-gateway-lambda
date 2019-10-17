@@ -10,12 +10,17 @@ import { FakeApiGatewayLambda } from '../src/index';
 type FetchResponse = import('node-fetch').Response;
 type FetchRequestInit = import('node-fetch').RequestInit;
 
+interface Dictionary<T> {
+    [key: string]: T
+}
+
 class TestHarness {
     lambda: FakeApiGatewayLambda;
 
-    constructor() {
+    constructor(options: { env?: Dictionary<string> } = {}) {
         this.lambda = new FakeApiGatewayLambda({
             port: 0,
+            env: options.env,
             routes: {
                 '/hello': path.join(__dirname, 'lambdas', 'hello.js')
             }

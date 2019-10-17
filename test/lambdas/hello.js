@@ -1,6 +1,6 @@
 
 exports.handler = function(event, context, callback) {
-    console.log('Received event:', JSON.stringify(event, null, 2));
+    // console.log('Received event:', JSON.stringify(event, null, 2));
     var res ={
         "statusCode": 200,
         "headers": {
@@ -18,9 +18,11 @@ exports.handler = function(event, context, callback) {
     } else if (event.queryStringParameters && event.queryStringParameters.greeter && event.queryStringParameters.greeter !== "") {
         greeter = event.queryStringParameters.greeter;
     } else if (event.multiValueHeaders && event.multiValueHeaders.greeter && event.multiValueHeaders.greeter != "") {
-        greeter = event.multiValueHeaders.greeter.join(" and ");
+        greeter = event.multiValueHeaders.greeter.join(' and ');
     } else if (event.headers && event.headers.greeter && event.headers.greeter != "") {
         greeter = event.headers.greeter;
+    } else if (process.env.TEST_GREETER) {
+        greeter = process.env.TEST_GREETER;
     }
 
     res.body = "Hello, " + greeter + "!";

@@ -20,6 +20,7 @@ export interface Dictionary<T> {
 
 export interface Options {
     port?: number;
+    env?: Dictionary<string>;
     routes: Dictionary<string>;
 }
 
@@ -44,10 +45,14 @@ interface Unrefable {
 }
 
 class WorkerPool {
-    private readonly workers: WorkerInfo[];
+    readonly workers: WorkerInfo[];
     private readonly maxWorkers: number;
     private readonly handlers: WorkerPoolHandler[];
-    private readonly knownRoutes: Dictionary<string>[];
+    private readonly knownGatewayInfos: {
+        id: string,
+        routes: Dictionary<string>,
+        env: Dictionary<string>
+    }[];
 
     private freeWorkerWG: WaitGroup | null;
 
@@ -55,45 +60,59 @@ class WorkerPool {
         this.maxWorkers = 10;
 
         this.workers = [];
-        this.knownRoutes = [];
+        this.knownGatewayInfos = [];
         this.handlers = [];
         this.freeWorkerWG = null;
     }
 
     register(
-        gatewayId: string,
-        routes: Dictionary<string>,
+        gatewayId: string, routes: Dictionary<string>,
+        env: Dictionary<string>,
         handler: WorkerPoolHandler
     ): void {
-        if ('__id__' in routes) {
-            throw new Error('the key `__id__` is reserved in routes');
-        }
-
-        routes['__id__'] = gatewayId;
-
-        this.knownRoutes.push(routes);
+        this.knownGatewayInfos.push({
+            id: gatewayId,
+            routes,
+            env
+        });
         this.handlers.push(handler);
 
         for (const w of this.workers) {
             w.proc.send({
                 message: 'addRoutes',
-                routes
+                id: gatewayId,
+                routes,
+                env
             });
         }
     }
 
     deregister(
-        _gatewayId: string,
+        gatewayId: string,
         routes: Dictionary<string>,
+        _env: Dictionary<string>,
         handler: WorkerPoolHandler
     ): void {
-        this.knownRoutes.splice(this.knownRoutes.indexOf(routes), 1);
+        let index = -1;
+        for (let i = 0; i < this.knownGatewayInfos.length; i++) {
+            const v = this.knownGatewayInfos[i];
+            if (v.routes === routes) {
+                index = i;
+                break;
+            }
+        }
+
+        if (index === -1) {
+            throw new Error('found weird index');
+        }
+
+        this.knownGatewayInfos.splice(index, 1);
         this.handlers.splice(this.handlers.indexOf(handler), 1);
 
         for (const w of this.workers) {
             w.proc.send({
                 message: 'removeRoutes',
-                routes
+                id: gatewayId
             });
         }
     }
@@ -172,7 +191,7 @@ class WorkerPool {
             proc.stderr.pipe(process.stderr);
         }
         proc.on('message', (msg: Dictionary<unknown>) => {
-            this.handleMessage(msg);
+            this.handleMessage(msg, info);
         });
 
         proc.once('exit', (code: number) => {
@@ -183,13 +202,14 @@ class WorkerPool {
 
         proc.send({
             message: 'start',
-            knownRoutes: this.knownRoutes
+            knownGatewayInfos: this.knownGatewayInfos
         });
         return info;
     }
 
     private handleMessage(
-        msg: Dictionary<unknown>
+        msg: Dictionary<unknown>,
+        info: WorkerInfo
     ): void {
         // tslint:disable-next-line: strict-boolean-expressions
         if (!msg || typeof msg !== 'object') {
@@ -208,7 +228,6 @@ class WorkerPool {
 
         const resultObj = msg['result'];
         if (!checkResult(resultObj)) {
-            console.log('not result');
             throw new Error('bad data type from child process');
         }
 
@@ -218,15 +237,22 @@ class WorkerPool {
                 break;
             }
         }
+
+        info.handlingRequest = false;
+        if (this.freeWorkerWG) {
+            this.freeWorkerWG.done();
+            this.freeWorkerWG = null;
+        }
     }
 }
 
 export class FakeApiGatewayLambda {
     private readonly port: number;
     private readonly routes: Dictionary<string>;
-    private readonly workerPool: WorkerPool;
+    readonly workerPool: WorkerPool;
     private httpServer: http.Server | null;
     private readonly gatewayId: string;
+    private readonly env: Dictionary<string>;
     hostPort: string | null;
 
     private static readonly WORKER_POOL: WorkerPool = new WorkerPool();
@@ -237,6 +263,7 @@ export class FakeApiGatewayLambda {
         this.httpServer = http.createServer();
         this.port = options.port || 0;
         this.routes = {...options.routes};
+        this.env = options.env || {};
         this.hostPort = null;
         this.pendingRequests = new Map();
         this.gatewayId = cuuid();
@@ -265,7 +292,12 @@ export class FakeApiGatewayLambda {
          * We want to register that these routes should be handled
          * by the following lambdas to the WORKER_POOL.
          */
-        this.workerPool.register(this.gatewayId, this.routes, this);
+        this.workerPool.register(
+            this.gatewayId,
+            this.routes,
+            this.env,
+            this
+        );
 
         const addr = this.httpServer.address();
         if (!addr || typeof addr === 'string') {
@@ -290,7 +322,12 @@ export class FakeApiGatewayLambda {
          * Here we want to tell the WORKER_POOL to stop routing
          * these URLs to the lambdas.
          */
-        this.workerPool.deregister(this.gatewayId, this.routes, this);
+        this.workerPool.deregister(
+            this.gatewayId,
+            this.routes,
+            this.env,
+            this
+        );
 
         this.httpServer = null;
     }
@@ -356,8 +393,8 @@ export class FakeApiGatewayLambda {
                 resource: '/{proxy+}',
                 path: req.url,
                 httpMethod: req.method,
-                headers: flattenHeaders(req.headers),
-                multiValueHeaders: multiValueObject(req.headers),
+                headers: flattenHeaders(req.rawHeaders),
+                multiValueHeaders: multiValueHeaders(req.rawHeaders),
                 queryStringParameters:
                     singleValueQueryString(uriObj.query),
                 multiValueQueryStringParameters:
@@ -449,15 +486,41 @@ function multiValueObject(
     return out;
 }
 
+function multiValueHeaders(
+    h: string[]
+): Dictionary<string[]> {
+    const out: Dictionary<string[]> = {};
+    for (let i = 0; i < h.length; i += 2) {
+        const headerName = h[i];
+        const headerValue = h[i + 1];
+
+        if (!(headerName in out)) {
+            out[headerName] = [headerValue];
+        } else {
+            out[headerName].push(headerValue);
+        }
+    }
+    return out;
+}
+
 function flattenHeaders(
-    h: Dictionary<string | string[] | undefined>
+    h: string[]
 ): Dictionary<string> {
     const out: Dictionary<string> = {};
-    for (const key of Object.keys(h)) {
-        const v = h[key];
-        if (typeof v === 'string') {
-            out[key] = v;
+    const deleteList: string[] = [];
+    for (let i = 0; i < h.length; i += 2) {
+        const headerName = h[i];
+        const headerValue = h[i + 1];
+
+        if (!(headerName in out)) {
+            out[headerName] = headerValue;
+        } else {
+            deleteList.push(headerName);
         }
+    }
+    for (const key of deleteList) {
+        // tslint:disable-next-line: no-dynamic-delete
+        delete out[key];
     }
     return out;
 }

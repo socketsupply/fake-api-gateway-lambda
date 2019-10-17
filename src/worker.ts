@@ -20,6 +20,12 @@ interface LambdaResult {
     body: string;
 }
 
+interface GatewayInfo {
+    routes: Dictionary<string>;
+    env: Dictionary<string>;
+    id: string;
+}
+
 interface LambdaFunction {
     handler(
         event: object,
@@ -29,14 +35,17 @@ interface LambdaFunction {
 }
 
 class LambdaWorker {
-    private readonly knownRoutes: Dictionary<string>[];
+    private readonly knownGatewayInfos: GatewayInfo[];
     private routes: Dictionary<string>;
     private readonly lambdaFunctions: Dictionary<LambdaFunction | undefined>;
+    private readonly globalEnv: Dictionary<string | undefined>;
 
     constructor() {
-        this.knownRoutes = [];
+        this.knownGatewayInfos = [];
         this.routes = {};
         this.lambdaFunctions = {};
+
+        this.globalEnv = { ...process.env };
     }
 
     handleMessage(msg: unknown): void {
@@ -49,20 +58,15 @@ class LambdaWorker {
         const messageType = objMsg['message'];
         // tslint:disable-next-line: prefer-switch
         if (messageType === 'start') {
-            const knownRoutes = objMsg['knownRoutes'];
-            if (!Array.isArray(knownRoutes)) {
+            const knownGatewayInfos = objMsg['knownGatewayInfos'];
+            if (!Array.isArray(knownGatewayInfos)) {
                 bail('bad data type from parent process: start');
                 return;
             }
 
-            for (const v of knownRoutes) {
-                if (!isStringDictionary(v)) {
-                    bail('bad data type from parent process: start');
-                    return;
-                }
-            }
-
-            this.handleStartMessage(<Dictionary<string>[]> knownRoutes);
+            this.handleStartMessage(
+                <GatewayInfo[]> knownGatewayInfos
+            );
         } else if (messageType === 'event') {
             const id = objMsg['id'];
             if (typeof id !== 'string') {
@@ -88,26 +92,37 @@ class LambdaWorker {
                 return;
             }
 
-            this.addRoutes(routes);
+            const id = objMsg['id'];
+            if (typeof id !== 'string') {
+                bail('bad data type from parent process: addRoutes');
+                return;
+            }
+
+            const env = objMsg['env'];
+            if (!isStringDictionary(env)) {
+                bail('bad data type from parent process: addRoutes');
+                return;
+            }
+
+            this.addRoutes(id, routes, env);
         } else if (messageType === 'removeRoutes') {
-            const routes = objMsg['routes'];
-            if (!isStringDictionary(routes)) {
+            const id = objMsg['id'];
+            if (typeof id !== 'string') {
                 bail('bad data type from parent process: removeRoutes');
                 return;
             }
 
-            this.removeRoutes(routes);
+            this.removeRoutes(id);
         } else {
-            console.log('?', objMsg);
             bail('bad data type from parent process: unknown');
         }
     }
 
-    private removeRoutes(routes: Dictionary<string>): void {
+    private removeRoutes(id: string): void {
         let foundIndex = -1;
-        for (let i = 0; i < this.knownRoutes.length; i++) {
-            const r = this.knownRoutes[i];
-            if (r['__id__'] === routes['__id__']) {
+        for (let i = 0; i < this.knownGatewayInfos.length; i++) {
+            const r = this.knownGatewayInfos[i];
+            if (r.id === id) {
                 foundIndex = i;
                 break;
             }
@@ -118,26 +133,43 @@ class LambdaWorker {
             return;
         }
 
-        this.knownRoutes.splice(foundIndex, 1);
+        this.knownGatewayInfos.splice(foundIndex, 1);
         this.rebuildRoutes();
+        this.rebuildEnv();
     }
 
-    private addRoutes(routes: Dictionary<string>): void {
-        this.knownRoutes.push(routes);
+    private addRoutes(
+        id: string,
+        routes: Dictionary<string>,
+        env: Dictionary<string>
+    ): void {
+        this.knownGatewayInfos.push({
+            id, routes, env
+        });
 
+        const oldCache = { ...require.cache };
+
+        /**
+         * Import to initialize the ENV of this worker before
+         * actually requiring the lambda code.
+         */
+        this.rebuildEnv();
         for (const key of Object.keys(routes)) {
-            if (key === '__id__') {
-                continue;
-            }
-
             const lambdaFile = routes[key];
-            const lambdaFn = this.lambdaFunctions[lambdaFile];
-            if (!lambdaFn) {
-                this.lambdaFunctions[lambdaFile] =
-                    // tslint:disable-next-line: non-literal-require
-                    <LambdaFunction> require(lambdaFile);
-            }
+            this.lambdaFunctions[lambdaFile] =
+                // tslint:disable-next-line: non-literal-require
+                <LambdaFunction> require(lambdaFile);
         }
+
+        /**
+         * We want the semantics of reloading the lambdas every
+         * time addRoutes is send to the worker process.
+         *
+         * This means every time a new ApiGatewayLambdaServer
+         * is created we re-load the lambda and re-evaluate
+         * the startup logic in it.
+         */
+        require.cache = oldCache;
 
         this.rebuildRoutes();
     }
@@ -149,7 +181,8 @@ class LambdaWorker {
          */
         const result: Dictionary<string> = {};
 
-        for (const routes of this.knownRoutes) {
+        for (const info of this.knownGatewayInfos) {
+            const routes = info.routes;
             for (const key of Object.keys(routes)) {
                 result[key] = routes[key];
             }
@@ -158,9 +191,9 @@ class LambdaWorker {
         this.routes = result;
     }
 
-    private handleStartMessage(knownRoutes: Dictionary<string>[]): void {
-        for (const routes of knownRoutes) {
-            this.addRoutes(routes);
+    private handleStartMessage(knownGatewayInfos: GatewayInfo[]): void {
+        for (const info of knownGatewayInfos) {
+            this.addRoutes(info.id, info.routes, info.env);
         }
     }
 
@@ -198,6 +231,27 @@ class LambdaWorker {
             body: 'Not Found',
             multiValueHeaders: {}
         });
+    }
+
+    private rebuildEnv(): void {
+        const envCopy = { ...this.globalEnv };
+
+        for (const info of this.knownGatewayInfos) {
+            Object.assign(envCopy, info.env);
+        }
+
+        /**
+         * We overwrite the environment of the entire process
+         * here.
+         *
+         * This is done so that you can configure the environment
+         * variables when "invoking" or "spawning" the lambda
+         * from the FakeApiGatewayLambda class.
+         *
+         * This is the primary vehicle for passing arguments into
+         * the lambda when writing tests.
+         */
+        process.env = envCopy;
     }
 
     invokeLambda(
