@@ -23,6 +23,8 @@ exports.handler = function(event, context, callback) {
         greeter = event.headers.greeter;
     } else if (process.env.TEST_GREETER) {
         greeter = process.env.TEST_GREETER;
+    } else if (event.requestContext.greeter) {
+        greeter = event.requestContext.greeter;
     }
 
     res.body = "Hello, " + greeter + "!";

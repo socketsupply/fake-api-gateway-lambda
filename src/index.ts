@@ -18,9 +18,14 @@ export interface Dictionary<T> {
     [key: string]: T;
 }
 
+export interface PopulateRequestContextFn {
+    (eventObject: LambdaEvent): Promise<object> | object;
+}
+
 export interface Options {
     port?: number;
     env?: Dictionary<string>;
+    populateRequestContext?: PopulateRequestContextFn;
     routes: Dictionary<string>;
 }
 
@@ -28,6 +33,21 @@ export interface PendingRequest {
     req: http.IncomingMessage;
     res: http.ServerResponse;
     id: string;
+}
+
+export interface LambdaEvent {
+    resource: string;
+    path: string;
+    httpMethod: string;
+    headers: Dictionary<string>;
+    multiValueHeaders: Dictionary<string[]>;
+    queryStringParameters: Dictionary<string>;
+    multiValueQueryStringParameters: Dictionary<string[]>;
+    pathParameters: Dictionary<string>;
+    stageVariables: Dictionary<string>;
+    requestContext: object;
+    body: string;
+    isBase64Encoded: boolean;
 }
 
 interface WorkerInfo {
@@ -253,6 +273,8 @@ export class FakeApiGatewayLambda {
     private httpServer: http.Server | null;
     private readonly gatewayId: string;
     private readonly env: Dictionary<string>;
+    private readonly populateRequestContext:
+        PopulateRequestContextFn | null;
     hostPort: string | null;
 
     private static readonly WORKER_POOL: WorkerPool = new WorkerPool();
@@ -267,6 +289,7 @@ export class FakeApiGatewayLambda {
         this.hostPort = null;
         this.pendingRequests = new Map();
         this.gatewayId = cuuid();
+        this.populateRequestContext = options.populateRequestContext || null;
 
         this.workerPool = FakeApiGatewayLambda.WORKER_POOL;
     }
@@ -385,14 +408,12 @@ export class FakeApiGatewayLambda {
              * API Gateway. Maybe these should come from the `routes`
              * options object itself
              */
-            /**
-             * @raynos TODO: Identify how to populate a requestContext
-             * object here.
-             */
-            const eventObject = {
+            const eventObject: LambdaEvent = {
                 resource: '/{proxy+}',
-                path: req.url,
-                httpMethod: req.method,
+                // tslint:disable-next-line: no-non-null-assertion
+                path: req.url!,
+                // tslint:disable-next-line: no-non-null-assertion
+                httpMethod: req.method!,
                 headers: flattenHeaders(req.rawHeaders),
                 multiValueHeaders: multiValueHeaders(req.rawHeaders),
                 queryStringParameters:
@@ -407,18 +428,36 @@ export class FakeApiGatewayLambda {
             };
 
             const id = cuuid();
-            this.pendingRequests.set(id, {
-                req,
-                res,
-                id
-            });
-            this.workerPool.dispatch(id, eventObject)
-                .catch((err: Error) => {
-                    process.nextTick(() => {
-                        throw err;
+            this.pendingRequests.set(id, { req, res, id });
+
+            if (this.populateRequestContext) {
+                const reqContext = this.populateRequestContext(eventObject);
+                if ('then' in reqContext && reqContext.then) {
+                    reqContext.then((reqContext: object) => {
+                        eventObject.requestContext = reqContext;
+                        this.dispatch(id, eventObject);
+                    }).catch((err: Error) => {
+                        process.nextTick(() => {
+                            throw err;
+                        });
                     });
-                });
+                } else {
+                    eventObject.requestContext = reqContext;
+                    this.dispatch(id, eventObject);
+                }
+            } else {
+                this.dispatch(id, eventObject);
+            }
         });
+    }
+
+    private dispatch(id: string, eventObject: LambdaEvent): void {
+        this.workerPool.dispatch(id, eventObject)
+            .catch((err: Error) => {
+                process.nextTick(() => {
+                    throw err;
+                });
+            });
     }
 }
 

@@ -5,7 +5,10 @@ import * as tapeCluster from 'tape-cluster';
 import * as path from 'path';
 import fetch from 'node-fetch';
 
-import { FakeApiGatewayLambda } from '../src/index';
+import {
+    FakeApiGatewayLambda,
+    PopulateRequestContextFn
+} from '../src/index';
 
 type FetchResponse = import('node-fetch').Response;
 type FetchRequestInit = import('node-fetch').RequestInit;
@@ -17,10 +20,14 @@ interface Dictionary<T> {
 class TestHarness {
     lambda: FakeApiGatewayLambda;
 
-    constructor(options: { env?: Dictionary<string> } = {}) {
+    constructor(options: {
+        env?: Dictionary<string>,
+        requestContext?: PopulateRequestContextFn
+    } = {}) {
         this.lambda = new FakeApiGatewayLambda({
             port: 0,
             env: options.env,
+            populateRequestContext: options.requestContext,
             routes: {
                 '/hello': path.join(__dirname, 'lambdas', 'hello.js')
             }

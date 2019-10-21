@@ -14,6 +14,34 @@ test('calling /hello with ENV vars 1', {
     assert.equal(b, 'Hello, TEST_ENV_1!');
 });
 
+test('calling /hello with requestContext sync', {
+    requestContext: (): object => {
+        return {
+            greeter: 'Timothy'
+        };
+    }
+}, async (harness, assert) => {
+    const res = await harness.fetch('/hello');
+    assert.equal(res.status, 200);
+
+    const b = await res.text();
+    assert.equal(b, 'Hello, Timothy!');
+});
+
+test('calling /hello with requestContext async', {
+    requestContext: async (): Promise<object> => {
+        return {
+            greeter: 'Timothy'
+        };
+    }
+}, async (harness, assert) => {
+    const res = await harness.fetch('/hello');
+    assert.equal(res.status, 200);
+
+    const b = await res.text();
+    assert.equal(b, 'Hello, Timothy!');
+});
+
 test('calling /hello with ENV vars 2', {
     env: { TEST_GREETER: 'TEST_ENV_2' }
 }, async (harness, assert) => {

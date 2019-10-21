@@ -130,6 +130,14 @@ to your lambdas.
  - `opts.env` ; An optional env object, the lambdas will have these
   env variables set in `process.env` ; this allows you to pass test
   paramaters to the lambdas.
+ - `opts.populateRequextContext` ; An optional function that creates
+  a request context object that will be passed into every lambda
+  invocation for this api-gateway. This function takes the lambda
+  event as the first argument. This is useful for populating
+  request context, like for example the cognito user pool information
+  if your lambda uses AWS amplify. This function can be sync or
+  async, aka return a `requestContext` object or return a promise
+  that resolves to a `requestContext` object.
 
 Your lambda function is spawned as a child process by the ApiGateway
 server.
