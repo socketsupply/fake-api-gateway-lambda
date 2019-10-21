@@ -162,6 +162,7 @@ class FakeApiGatewayLambda {
         this.hostPort = null;
         this.pendingRequests = new Map();
         this.gatewayId = cuuid();
+        this.populateRequestContext = options.populateRequestContext || null;
         this.workerPool = FakeApiGatewayLambda.WORKER_POOL;
     }
     async bootstrap() {
@@ -244,13 +245,11 @@ class FakeApiGatewayLambda {
              * API Gateway. Maybe these should come from the `routes`
              * options object itself
              */
-            /**
-             * @raynos TODO: Identify how to populate a requestContext
-             * object here.
-             */
             const eventObject = {
                 resource: '/{proxy+}',
+                // tslint:disable-next-line: no-non-null-assertion
                 path: req.url,
+                // tslint:disable-next-line: no-non-null-assertion
                 httpMethod: req.method,
                 headers: flattenHeaders(req.rawHeaders),
                 multiValueHeaders: multiValueHeaders(req.rawHeaders),
@@ -263,16 +262,34 @@ class FakeApiGatewayLambda {
                 isBase64Encoded: false
             };
             const id = cuuid();
-            this.pendingRequests.set(id, {
-                req,
-                res,
-                id
-            });
-            this.workerPool.dispatch(id, eventObject)
-                .catch((err) => {
-                process.nextTick(() => {
-                    throw err;
-                });
+            this.pendingRequests.set(id, { req, res, id });
+            if (this.populateRequestContext) {
+                const reqContext = this.populateRequestContext(eventObject);
+                if ('then' in reqContext && reqContext.then) {
+                    reqContext.then((reqContext) => {
+                        eventObject.requestContext = reqContext;
+                        this.dispatch(id, eventObject);
+                    }).catch((err) => {
+                        process.nextTick(() => {
+                            throw err;
+                        });
+                    });
+                }
+                else {
+                    eventObject.requestContext = reqContext;
+                    this.dispatch(id, eventObject);
+                }
+            }
+            else {
+                this.dispatch(id, eventObject);
+            }
+        });
+    }
+    dispatch(id, eventObject) {
+        this.workerPool.dispatch(id, eventObject)
+            .catch((err) => {
+            process.nextTick(() => {
+                throw err;
             });
         });
     }

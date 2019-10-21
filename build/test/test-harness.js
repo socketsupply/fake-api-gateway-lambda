@@ -10,6 +10,7 @@ class TestHarness {
         this.lambda = new index_1.FakeApiGatewayLambda({
             port: 0,
             env: options.env,
+            populateRequestContext: options.requestContext,
             routes: {
                 '/hello': path.join(__dirname, 'lambdas', 'hello.js')
             }

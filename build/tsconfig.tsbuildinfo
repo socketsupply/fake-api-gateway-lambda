@@ -302,23 +302,23 @@
         "signature": "c6d09df787751fe9efb2d094949d9567ede6e8fb43f7dcf6372604682bd55d1d"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/src/index.ts": {
-        "version": "b7bd4b6a4a1f05fe682de4f5eecf5c30389175ba3ebfca7e6d393f34f3cb00a3",
-        "signature": "3910482c1e1e363b9d81407277abaad1fd989d7656afafffc5c5645421745b33"
+        "version": "04b3e12b1c18902200c29ee03085243768c216cad04831453aa847c1cedc5176",
+        "signature": "2c343d10674055c997c0e5ead3e40570c1e2abd2e94cf6aa93010c51ddd1f584"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/src/worker.ts": {
         "version": "9b2e408fbe3f1bd75023097781c6067c93fe71002de18df07fdf5c8999ea0720",
         "signature": "51341b6dc9b6d0db38f048855e13cda0a0ec12d754d074e9f3951081cda3ba72"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/test/test-harness.ts": {
-        "version": "ef4b3028b250d0d3e38e3b87c2adedc35082407403c3c72e1804c83a6b65df07",
-        "signature": "9be8625ff33a83f157c0308264d326d1ee9d2b9bc1628102f4da69c9e297f880"
+        "version": "ea68e12d885668a079f7834f4526fbd548ce11939a893159038880d66db4f307",
+        "signature": "8251c6480dec3ee85d71ef58718b5fe3e7a1d19ff180cf2f90968bfc4c027c37"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/test/index.ts": {
-        "version": "c09e876ec092e24084889a117a5976f57a2bcfd11a320581f43a8eaa23b908c2",
+        "version": "8d18ff81e28c030cf29822ac7ba2b1099aa87d118c059a3ec74ecf7bd5fb6782",
         "signature": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/test/lambdas/hello.js": {
-        "version": "65e5724062398dff3a5286ad004eff1a70f6d8541782e3b1696f953348a2f06e"
+        "version": "c2342776c1d5578b713be8ecc7a59809af6a6e9a9bfc5558a528b4221831d128"
       }
     },
     "options": {

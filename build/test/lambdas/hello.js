@@ -29,6 +29,9 @@ exports.handler = function (event, context, callback) {
     else if (process.env.TEST_GREETER) {
         greeter = process.env.TEST_GREETER;
     }
+    else if (event.requestContext.greeter) {
+        greeter = event.requestContext.greeter;
+    }
     res.body = "Hello, " + greeter + "!";
     callback(null, res);
 };
