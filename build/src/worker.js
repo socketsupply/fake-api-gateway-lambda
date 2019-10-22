@@ -89,7 +89,6 @@ class LambdaWorker {
         this.knownGatewayInfos.push({
             id, routes, env
         });
-        const oldCache = Object.assign({}, globalRequire.cache);
         /**
          * Import to initialize the ENV of this worker before
          * actually requiring the lambda code.
@@ -114,7 +113,6 @@ class LambdaWorker {
             // tslint:disable-next-line: no-dynamic-delete
             delete globalRequire.cache[key];
         }
-        globalRequire.cache = oldCache;
         this.rebuildRoutes();
     }
     rebuildRoutes() {
@@ -220,7 +218,8 @@ class LambdaWorker {
             isBase64Encoded: false,
             statusCode: 500,
             headers: {},
-            body: 'Unknown server error: ' + err.message,
+            body: 'fake-api-gateway-lambda: ' +
+                'Lambda rejected promise: ' + err.message,
             multiValueHeaders: {}
         });
     }
