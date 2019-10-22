@@ -35,7 +35,7 @@ interface LambdaFunction {
 }
 
 const globalRequire = <{
-    cache: Dictionary<string>
+    cache: Dictionary<{ children: string[] }>
 }> require;
 
 class LambdaWorker {
@@ -152,7 +152,7 @@ class LambdaWorker {
             id, routes, env
         });
 
-        const oldCache: Dictionary<string> = {
+        const oldCache: Dictionary<{ children: string[] }> = {
             ...globalRequire.cache
         };
 
@@ -176,6 +176,11 @@ class LambdaWorker {
          * is created we re-load the lambda and re-evaluate
          * the startup logic in it.
          */
+        for (const key of Object.keys(globalRequire.cache)) {
+            globalRequire.cache[key].children = [];
+            // tslint:disable-next-line: no-dynamic-delete
+            delete globalRequire.cache[key];
+        }
         globalRequire.cache = oldCache;
 
         this.rebuildRoutes();
@@ -328,7 +333,7 @@ class LambdaWorker {
                 statusCode: result.statusCode,
                 // tslint:disable-next-line: strict-boolean-expressions
                 headers: result.headers || {},
-                body: result.body,
+                body: result.body || '',
                 multiValueHeaders: result.multiValueHeaders
             }
         });
