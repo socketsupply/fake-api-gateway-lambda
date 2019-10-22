@@ -306,8 +306,8 @@
         "signature": "2c343d10674055c997c0e5ead3e40570c1e2abd2e94cf6aa93010c51ddd1f584"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/src/worker.ts": {
-        "version": "9b2e408fbe3f1bd75023097781c6067c93fe71002de18df07fdf5c8999ea0720",
-        "signature": "51341b6dc9b6d0db38f048855e13cda0a0ec12d754d074e9f3951081cda3ba72"
+        "version": "dc01e29b556d3be6364e9799b55555a107af962f7b90334a703047bacb3c5aad",
+        "signature": "4862f6aa4fbe9f6b2cd60106da6efc7819b744fc30f75d4546566a0c552dd9ec"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/test/test-harness.ts": {
         "version": "ea68e12d885668a079f7834f4526fbd548ce11939a893159038880d66db4f307",
