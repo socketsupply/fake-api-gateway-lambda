@@ -1,5 +1,9 @@
 'use strict';
 const globalRequire = require;
+// tslint:disable-next-line: no-unbound-method
+const globalStdoutWrite = process.stdout.write;
+// tslint:disable-next-line: no-unbound-method
+const globalStderrWrite = process.stderr.write;
 class LambdaWorker {
     constructor() {
         this.knownGatewayInfos = [];
@@ -54,7 +58,12 @@ class LambdaWorker {
                 bail('bad data type from parent process: addRoutes');
                 return;
             }
-            this.addRoutes(id, routes, env);
+            const silent = objMsg['silent'];
+            if (typeof silent !== 'boolean') {
+                bail('bad data type from parent process: addRoutes');
+                return;
+            }
+            this.addRoutes(id, routes, env, silent);
         }
         else if (messageType === 'removeRoutes') {
             const id = objMsg['id'];
@@ -69,6 +78,8 @@ class LambdaWorker {
         }
     }
     removeRoutes(id) {
+        process.stdout.write = globalStdoutWrite;
+        process.stderr.write = globalStderrWrite;
         let foundIndex = -1;
         for (let i = 0; i < this.knownGatewayInfos.length; i++) {
             const r = this.knownGatewayInfos[i];
@@ -85,10 +96,14 @@ class LambdaWorker {
         this.rebuildRoutes();
         this.rebuildEnv();
     }
-    addRoutes(id, routes, env) {
+    addRoutes(id, routes, env, silent) {
         this.knownGatewayInfos.push({
-            id, routes, env
+            id, routes, env, silent
         });
+        if (silent) {
+            process.stdout.write = noop;
+            process.stderr.write = noop;
+        }
         /**
          * Import to initialize the ENV of this worker before
          * actually requiring the lambda code.
@@ -131,7 +146,7 @@ class LambdaWorker {
     }
     handleStartMessage(knownGatewayInfos) {
         for (const info of knownGatewayInfos) {
-            this.addRoutes(info.id, info.routes, info.env);
+            this.addRoutes(info.id, info.routes, info.env, info.silent);
         }
     }
     handleEventMessage(id, eventObject) {
@@ -153,7 +168,6 @@ class LambdaWorker {
                 return;
             }
         }
-        // console.log(':(');
         this.sendResult(id, {
             isBase64Encoded: false,
             statusCode: 404,
@@ -267,6 +281,9 @@ function bail(msg) {
         msg + '\n', () => {
         process.exit(1);
     });
+}
+function noop(_buf) {
+    return false;
 }
 main();
 //# sourceMappingURL=worker.js.map

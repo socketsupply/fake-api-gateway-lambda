@@ -302,12 +302,12 @@
         "signature": "c6d09df787751fe9efb2d094949d9567ede6e8fb43f7dcf6372604682bd55d1d"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/src/index.ts": {
-        "version": "04b3e12b1c18902200c29ee03085243768c216cad04831453aa847c1cedc5176",
-        "signature": "2c343d10674055c997c0e5ead3e40570c1e2abd2e94cf6aa93010c51ddd1f584"
+        "version": "22f18afce778791ace1b553a4584a638b69aac69db28f1ad807789e2ab40d486",
+        "signature": "2be89b3b2a3c209ef7e0af474572177ea488b3eec120fff10ccd1e0f348b3095"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/src/worker.ts": {
-        "version": "511916dd2bb7b2a4f6925169c115d37a11f8dd5c8d5d66bd0358b22bec4a9fca",
-        "signature": "4862f6aa4fbe9f6b2cd60106da6efc7819b744fc30f75d4546566a0c552dd9ec"
+        "version": "5b2b361202b7adbf114fdc6098d8cb81e0c2214446a01686f8abaa70483a8953",
+        "signature": "bc4e65ae47cecbf048ea7c1a1d4bb184db9daee2ea849fc9a1f944b58977acc8"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/test/test-harness.ts": {
         "version": "ea68e12d885668a079f7834f4526fbd548ce11939a893159038880d66db4f307",

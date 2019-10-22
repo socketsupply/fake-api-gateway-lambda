@@ -15,11 +15,12 @@ class WorkerPool {
         this.handlers = [];
         this.freeWorkerWG = null;
     }
-    register(gatewayId, routes, env, handler) {
+    register(gatewayId, routes, env, silent, handler) {
         this.knownGatewayInfos.push({
             id: gatewayId,
             routes,
-            env
+            env,
+            silent
         });
         this.handlers.push(handler);
         for (const w of this.workers) {
@@ -27,11 +28,12 @@ class WorkerPool {
                 message: 'addRoutes',
                 id: gatewayId,
                 routes,
-                env
+                env,
+                silent
             });
         }
     }
-    deregister(gatewayId, routes, _env, handler) {
+    deregister(gatewayId, routes, _env, _silent, handler) {
         let index = -1;
         for (let i = 0; i < this.knownGatewayInfos.length; i++) {
             const v = this.knownGatewayInfos[i];
@@ -159,6 +161,7 @@ class FakeApiGatewayLambda {
         this.port = options.port || 0;
         this.routes = Object.assign({}, options.routes);
         this.env = options.env || {};
+        this.silent = options.silent || false;
         this.hostPort = null;
         this.pendingRequests = new Map();
         this.gatewayId = cuuid();
@@ -180,7 +183,7 @@ class FakeApiGatewayLambda {
          * We want to register that these routes should be handled
          * by the following lambdas to the WORKER_POOL.
          */
-        this.workerPool.register(this.gatewayId, this.routes, this.env, this);
+        this.workerPool.register(this.gatewayId, this.routes, this.env, this.silent, this);
         const addr = this.httpServer.address();
         if (!addr || typeof addr === 'string') {
             throw new Error('invalid http server address');
@@ -200,7 +203,7 @@ class FakeApiGatewayLambda {
          * Here we want to tell the WORKER_POOL to stop routing
          * these URLs to the lambdas.
          */
-        this.workerPool.deregister(this.gatewayId, this.routes, this.env, this);
+        this.workerPool.deregister(this.gatewayId, this.routes, this.env, this.silent, this);
         this.httpServer = null;
     }
     hasPendingRequest(id) {
