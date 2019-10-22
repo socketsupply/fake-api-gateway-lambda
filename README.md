@@ -138,6 +138,10 @@ to your lambdas.
   if your lambda uses AWS amplify. This function can be sync or
   async, aka return a `requestContext` object or return a promise
   that resolves to a `requestContext` object.
+ - `opts.silent` ; An optional boolean. If set the stdout/stderr
+  output of the lambda process will be supressed. This means you
+  can add `console.log` to your lambda and have these be hidden
+  in tests if they are too noisy.
 
 Your lambda function is spawned as a child process by the ApiGateway
 server.

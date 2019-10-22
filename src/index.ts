@@ -25,6 +25,7 @@ export interface PopulateRequestContextFn {
 export interface Options {
     port?: number;
     env?: Dictionary<string>;
+    silent?: boolean;
     populateRequestContext?: PopulateRequestContextFn;
     routes: Dictionary<string>;
 }
@@ -71,7 +72,8 @@ class WorkerPool {
     private readonly knownGatewayInfos: {
         id: string,
         routes: Dictionary<string>,
-        env: Dictionary<string>
+        env: Dictionary<string>,
+        silent: boolean
     }[];
 
     private freeWorkerWG: WaitGroup | null;
@@ -87,13 +89,14 @@ class WorkerPool {
 
     register(
         gatewayId: string, routes: Dictionary<string>,
-        env: Dictionary<string>,
+        env: Dictionary<string>, silent: boolean,
         handler: WorkerPoolHandler
     ): void {
         this.knownGatewayInfos.push({
             id: gatewayId,
             routes,
-            env
+            env,
+            silent
         });
         this.handlers.push(handler);
 
@@ -102,7 +105,8 @@ class WorkerPool {
                 message: 'addRoutes',
                 id: gatewayId,
                 routes,
-                env
+                env,
+                silent
             });
         }
     }
@@ -111,6 +115,7 @@ class WorkerPool {
         gatewayId: string,
         routes: Dictionary<string>,
         _env: Dictionary<string>,
+        _silent: boolean,
         handler: WorkerPoolHandler
     ): void {
         let index = -1;
@@ -273,6 +278,7 @@ export class FakeApiGatewayLambda {
     private httpServer: http.Server | null;
     private readonly gatewayId: string;
     private readonly env: Dictionary<string>;
+    private readonly silent: boolean;
     private readonly populateRequestContext:
         PopulateRequestContextFn | null;
     hostPort: string | null;
@@ -286,6 +292,7 @@ export class FakeApiGatewayLambda {
         this.port = options.port || 0;
         this.routes = {...options.routes};
         this.env = options.env || {};
+        this.silent = options.silent || false;
         this.hostPort = null;
         this.pendingRequests = new Map();
         this.gatewayId = cuuid();
@@ -319,6 +326,7 @@ export class FakeApiGatewayLambda {
             this.gatewayId,
             this.routes,
             this.env,
+            this.silent,
             this
         );
 
@@ -349,6 +357,7 @@ export class FakeApiGatewayLambda {
             this.gatewayId,
             this.routes,
             this.env,
+            this.silent,
             this
         );
 

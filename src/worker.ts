@@ -24,6 +24,7 @@ interface GatewayInfo {
     routes: Dictionary<string>;
     env: Dictionary<string>;
     id: string;
+    silent: boolean;
 }
 
 interface LambdaFunction {
@@ -37,6 +38,10 @@ interface LambdaFunction {
 const globalRequire = <{
     cache: Dictionary<{ children: string[] }>
 }> require;
+// tslint:disable-next-line: no-unbound-method
+const globalStdoutWrite = process.stdout.write;
+// tslint:disable-next-line: no-unbound-method
+const globalStderrWrite = process.stderr.write;
 
 class LambdaWorker {
     private readonly knownGatewayInfos: GatewayInfo[];
@@ -109,7 +114,13 @@ class LambdaWorker {
                 return;
             }
 
-            this.addRoutes(id, routes, env);
+            const silent = objMsg['silent'];
+            if (typeof silent !== 'boolean') {
+                bail('bad data type from parent process: addRoutes');
+                return;
+            }
+
+            this.addRoutes(id, routes, env, silent);
         } else if (messageType === 'removeRoutes') {
             const id = objMsg['id'];
             if (typeof id !== 'string') {
@@ -124,6 +135,9 @@ class LambdaWorker {
     }
 
     private removeRoutes(id: string): void {
+        process.stdout.write = globalStdoutWrite;
+        process.stderr.write = globalStderrWrite;
+
         let foundIndex = -1;
         for (let i = 0; i < this.knownGatewayInfos.length; i++) {
             const r = this.knownGatewayInfos[i];
@@ -146,11 +160,17 @@ class LambdaWorker {
     private addRoutes(
         id: string,
         routes: Dictionary<string>,
-        env: Dictionary<string>
+        env: Dictionary<string>,
+        silent: boolean
     ): void {
         this.knownGatewayInfos.push({
-            id, routes, env
+            id, routes, env, silent
         });
+
+        if (silent) {
+            process.stdout.write = noop;
+            process.stderr.write = noop;
+        }
 
         /**
          * Import to initialize the ENV of this worker before
@@ -200,7 +220,7 @@ class LambdaWorker {
 
     private handleStartMessage(knownGatewayInfos: GatewayInfo[]): void {
         for (const info of knownGatewayInfos) {
-            this.addRoutes(info.id, info.routes, info.env);
+            this.addRoutes(info.id, info.routes, info.env, info.silent);
         }
     }
 
@@ -228,8 +248,6 @@ class LambdaWorker {
                 return;
             }
         }
-
-        // console.log(':(');
 
         this.sendResult(id, {
             isBase64Encoded: false,
@@ -366,6 +384,10 @@ function bail(msg: string): void {
             process.exit(1);
         }
     );
+}
+
+function noop(_buf: Buffer | string | Uint8Array): boolean {
+    return false;
 }
 
 main();
