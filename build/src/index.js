@@ -161,6 +161,7 @@ class FakeApiGatewayLambda {
         this.port = options.port || 0;
         this.routes = Object.assign({}, options.routes);
         this.env = options.env || {};
+        this.enableCors = options.enableCors || false;
         this.silent = options.silent || false;
         this.hostPort = null;
         this.pendingRequests = new Map();
@@ -234,6 +235,18 @@ class FakeApiGatewayLambda {
         res.end(result.body);
     }
     handleServerRequest(req, res) {
+        if (this.enableCors) {
+            res.setHeader("Access-Control-Allow-Origin", req.headers.origin || '*');
+            res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS, XMODIFY");
+            res.setHeader("Access-Control-Allow-Credentials", "true");
+            res.setHeader("Access-Control-Max-Age", "86400");
+            res.setHeader("Access-Control-Allow-Headers", 'X-Requested-With, X-HTTP-Method-Override, ' +
+                'Content-Type, Accept, Authorization');
+        }
+        if (this.enableCors && req.method === 'OPTIONS') {
+            res.end();
+            return;
+        }
         // tslint:disable-next-line: no-non-null-assertion
         const uriObj = url.parse(req.url, true);
         let body = '';
