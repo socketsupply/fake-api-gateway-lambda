@@ -130,6 +130,8 @@ to your lambdas.
  - `opts.env` ; An optional env object, the lambdas will have these
   env variables set in `process.env` ; this allows you to pass test
   paramaters to the lambdas.
+ - `opts.enableCors` ; An optional boolean. If set to true the HTTP
+  server will respond with CORS enabled headers.
  - `opts.populateRequextContext` ; An optional function that creates
   a request context object that will be passed into every lambda
   invocation for this api-gateway. This function takes the lambda
