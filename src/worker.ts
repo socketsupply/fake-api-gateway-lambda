@@ -6,6 +6,9 @@
  *
  * This needs to do a bunch of "simulation" work to make
  * it appear like a real AWS lambda.
+ *
+ * https://github.com/ashiina/lambda-local
+ * 
  */
 
 interface Dictionary<T> {
