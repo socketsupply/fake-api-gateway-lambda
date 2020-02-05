@@ -8,7 +8,7 @@
  * it appear like a real AWS lambda.
  *
  * https://github.com/ashiina/lambda-local
- * 
+ * https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
  */
 
 interface Dictionary<T> {
