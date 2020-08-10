@@ -306,8 +306,8 @@
         "signature": "dc90f49fd01ea64d170730f984d05be8af3282a739fdcba46a10d9f5079b1e9d"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/src/worker.ts": {
-        "version": "5b2b361202b7adbf114fdc6098d8cb81e0c2214446a01686f8abaa70483a8953",
-        "signature": "bc4e65ae47cecbf048ea7c1a1d4bb184db9daee2ea849fc9a1f944b58977acc8"
+        "version": "d4b7e6e1f335a2095a7667942bb1cd4f29cc191f441e32903afa3c638f282f19",
+        "signature": "43e1ad507a7d5ec33a14e2b719f124b02ab4b1c349facbaabefe681c2cc331f6"
       },
       "/home/raynos/projects/fake-api-gateway-lambda/test/test-harness.ts": {
         "version": "ea68e12d885668a079f7834f4526fbd548ce11939a893159038880d66db4f307",
@@ -1267,11 +1267,11 @@
       "/home/raynos/projects/fake-api-gateway-lambda/types/tape-cluster/index.d.ts",
       "/home/raynos/projects/fake-api-gateway-lambda/node_modules/tslib/tslib.d.ts",
       "/home/raynos/projects/fake-api-gateway-lambda/src/sync-wait-group.ts",
+      "/home/raynos/projects/fake-api-gateway-lambda/src/index.ts",
       "/home/raynos/projects/fake-api-gateway-lambda/src/worker.ts",
       "/home/raynos/projects/fake-api-gateway-lambda/test/test-harness.ts",
       "/home/raynos/projects/fake-api-gateway-lambda/test/index.ts",
-      "/home/raynos/projects/fake-api-gateway-lambda/test/lambdas/hello.js",
-      "/home/raynos/projects/fake-api-gateway-lambda/src/index.ts"
+      "/home/raynos/projects/fake-api-gateway-lambda/test/lambdas/hello.js"
     ]
   },
   "version": "3.4.5"

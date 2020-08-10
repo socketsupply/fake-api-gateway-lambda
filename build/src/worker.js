@@ -223,6 +223,7 @@ class LambdaWorker {
         }
     }
     sendError(id, err) {
+        console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err);
         /**
          * @raynos TODO: We should identify what AWS lambda does here
          * in co-ordination with AWS API Gateway and return that
