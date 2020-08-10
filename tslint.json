@@ -15,6 +15,7 @@
         "call-signature"
       ],
 
+      "strict-comparisons": false,
       "no-const-enum": false,
       "no-bad-reference": true,
       "no-declare-current-package": true,

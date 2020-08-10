@@ -35,7 +35,7 @@ interface LambdaFunction {
         event: object,
         ctx: object,
         cb: (err: Error, result?: LambdaResult) => void
-    ): Promise<LambdaResult> | void;
+    ): Promise<LambdaResult> | null;
 }
 
 const globalRequire = <{
@@ -320,6 +320,8 @@ class LambdaWorker {
     }
 
     sendError(id: string, err: Error): void {
+        console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err);
+
         /**
          * @raynos TODO: We should identify what AWS lambda does here
          * in co-ordination with AWS API Gateway and return that
