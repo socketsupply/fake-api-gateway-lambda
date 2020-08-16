@@ -1,5 +1,4 @@
 // TypeScript Version: 3.0
-/// <reference types="node" />
 
 export = tape;
 
@@ -13,16 +12,15 @@ declare function tape(name: string, opts: tape.TestOptions, cb: tape.TestCase): 
 declare function tape(cb: tape.TestCase): void;
 
 declare namespace tape {
-    interface TestCase {
-        (test: Test): void;
-    }
+    /* eslint-disable-next-line @typescript-eslint/no-invalid-void-type */
+    type TestCase = (test: Test) => void | Promise<void>;
 
     /**
      * Available opts options for the tape function.
      */
     interface TestOptions {
-        skip?: boolean;		// See tape.skip.
-        timeout?: number;	// Set a timeout for the test, after which it will fail. See tape.timeoutAfter.
+        skip?: boolean; //   See tape.skip.
+        timeout?: number; // Set a timeout for the test, after which it will fail. See tape.timeoutAfter.
     }
 
     /**
@@ -36,9 +34,8 @@ declare namespace tape {
      * Generate a new test that will be skipped over.
      */
     function skip(name: string | TestOptions, cb: TestCase): void;
-    function skip(name: string): void;
+    function skip(name: string | TestCase): void;
     function skip(name: string, opts: TestOptions, cb: TestCase): void;
-    function skip(cb: TestCase): void;
 
     /**
      * The onFinish hook will get invoked when ALL tape tests have finished right before tape is about to print the test summary.
