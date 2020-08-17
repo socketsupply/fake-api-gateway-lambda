@@ -36,6 +36,31 @@ const WORKER_PATH = path.join(__dirname, 'worker.js')
     @typedef {{
         unref(): void;
     }} Unrefable
+    @typedef {{
+        resource: string;
+        path: string;
+        httpMethod: string;
+        headers: Record<string, string>;
+        multiValueHeaders: Record<string, string[]>;
+        queryStringParameters: Record<string, string>;
+        multiValueQueryStringParameters: Record<string, string[]>;
+        pathParameters: Record<string, string>;
+        stageVariables: Record<string, string>;
+        requestContext: object;
+        body: string;
+        isBase64Encoded: boolean;
+    }} LambdaEvent
+    @typedef {{
+        (eventObject: LambdaEvent): Promise<object> | object;
+    }} PopulateRequestContextFn
+    @typedef {{
+        port?: number;
+        env?: Record<string, string>;
+        enableCors?: boolean;
+        silent?: boolean;
+        populateRequestContext?: PopulateRequestContextFn;
+        routes: Record<string, string>;
+    }} Options
  */
 
 class WorkerPool {
@@ -262,7 +287,11 @@ class WorkerPool {
 }
 
 class FakeApiGatewayLambda {
+  /**
+   * @param {Options} options
+   */
   constructor (options) {
+    /** @type {http.Server | null} */
     this.httpServer = http.createServer()
     this.port = options.port || 0
     this.routes = { ...options.routes }
@@ -291,7 +320,9 @@ class FakeApiGatewayLambda {
 
     const server = this.httpServer
     await util.promisify((cb) => {
-      server.listen(this.port, cb)
+      server.listen(this.port, () => {
+        cb(null, null)
+      })
     })()
 
     /**
@@ -322,7 +353,9 @@ class FakeApiGatewayLambda {
 
     const server = this.httpServer
     await util.promisify((cb) => {
-      server.close(cb)
+      server.close(() => {
+        cb(null, null)
+      })
     })()
 
     /**
@@ -340,10 +373,17 @@ class FakeApiGatewayLambda {
     this.httpServer = null
   }
 
+  /**
+   * @param {string} id
+   */
   hasPendingRequest (id) {
     return this.pendingRequests.has(id)
   }
 
+  /**
+   * @param {string} id
+   * @param {LambdaResult} result
+   */
   handleLambdaResult (id, result) {
     const pending = this.pendingRequests.get(id)
     if (!pending) {
@@ -374,6 +414,10 @@ class FakeApiGatewayLambda {
     res.end(result.body)
   }
 
+  /**
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   */
   handleServerRequest (
     req,
     res
@@ -397,7 +441,10 @@ class FakeApiGatewayLambda {
       return
     }
 
-    const uriObj = url.parse(req.url, true)
+    const reqUrl = req.url || '/'
+
+    // eslint-disable-next-line node/no-deprecated-api
+    const uriObj = url.parse(reqUrl, true)
 
     let body = ''
     req.on('data', (chunk) => {
@@ -405,16 +452,17 @@ class FakeApiGatewayLambda {
     })
     req.on('end', () => {
       /**
-             * @raynos TODO: Need to identify what concrete value
-             * to use for `event.resource` and for `event.pathParameters`
-             * since these are based on actual configuration in AWS
-             * API Gateway. Maybe these should come from the `routes`
-             * options object itself
-             */
+       * @raynos TODO: Need to identify what concrete value
+       * to use for `event.resource` and for `event.pathParameters`
+       * since these are based on actual configuration in AWS
+       * API Gateway. Maybe these should come from the `routes`
+       * options object itself
+       */
+
       const eventObject = {
         resource: '/{proxy+}',
-        path: req.url,
-        httpMethod: req.method,
+        path: req.url ? req.url : '/',
+        httpMethod: req.method ? req.method : 'GET',
         headers: flattenHeaders(req.rawHeaders),
         multiValueHeaders: multiValueHeaders(req.rawHeaders),
         queryStringParameters:
@@ -434,10 +482,14 @@ class FakeApiGatewayLambda {
       if (this.populateRequestContext) {
         const reqContext = this.populateRequestContext(eventObject)
         if ('then' in reqContext && reqContext.then) {
-          reqContext.then((reqContext) => {
+          reqContext.then((
+            /** @type {object} */ reqContext
+          ) => {
             eventObject.requestContext = reqContext
             this.dispatch(id, eventObject)
-          }).catch((err) => {
+          }).catch((
+            /** @type {Error} */ err
+          ) => {
             process.nextTick(() => {
               throw err
             })
@@ -452,6 +504,10 @@ class FakeApiGatewayLambda {
     })
   }
 
+  /**
+   * @param {string} id
+   * @param {object} eventObject
+   */
   dispatch (id, eventObject) {
     this.workerPool.dispatch(id, eventObject)
       .catch((err) => {
