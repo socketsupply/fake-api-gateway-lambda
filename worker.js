@@ -16,24 +16,21 @@ const globalRequire = require
 const globalStdoutWrite = process.stdout.write
 const globalStderrWrite = process.stderr.write
 
-/** @typedef {{
+/**
+    @typedef {{
         routes: Record<string,string>;
         env: Record<string, string>;
         id: string;
         silent: boolean;
     }} GatewayInfo
- */
-
-/** @typedef {{
+    @typedef {{
         isBase64Encoded: boolean;
         statusCode: number;
         headers: Record<string, string>;
         multiValueHeaders?: Record<string, string[]>;
         body: string;
     }} LambdaResult
- */
-
-/** @typedef {{
+    @typedef {{
         handler(
             event: object,
             ctx: object,
@@ -333,10 +330,10 @@ class LambdaWorker {
     console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err)
 
     /**
-         * @raynos TODO: We should identify what AWS lambda does here
-         * in co-ordination with AWS API Gateway and return that
-         * instead.
-         */
+     * @raynos TODO: We should identify what AWS lambda does here
+     * in co-ordination with AWS API Gateway and return that
+     * instead.
+     */
     this.sendResult(id, {
       isBase64Encoded: false,
       statusCode: 500,

@@ -25,6 +25,7 @@
     "test/**/*"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "test/lambdas/hello.js"
   ]
 }
