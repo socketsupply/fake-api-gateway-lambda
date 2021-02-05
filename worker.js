@@ -12,6 +12,7 @@
  * https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
  */
 
+/** @type {{ cache: Record<string, { children: object[] }> }} */
 const globalRequire = require
 const globalStdoutWrite = process.stdout.write
 const globalStderrWrite = process.stderr.write
@@ -26,7 +27,7 @@ const globalStderrWrite = process.stderr.write
     @typedef {{
         isBase64Encoded: boolean;
         statusCode: number;
-        headers: Record<string, string>;
+        headers?: Record<string, string>;
         multiValueHeaders?: Record<string, string[]>;
         body: string;
     }} LambdaResult
@@ -48,6 +49,7 @@ class LambdaWorker {
     /** @type {Record<string, LambdaFunction | undefined>} */
     this.lambdaFunctions = {}
 
+    /** @type {Record<string, string | undefined>} */
     this.globalEnv = { ...process.env }
   }
 
@@ -56,7 +58,7 @@ class LambdaWorker {
    * @returns {void}
    */
   handleMessage (msg) {
-    if (typeof msg !== 'object' || !msg) {
+    if (typeof msg !== 'object' || Object.is(msg, null)) {
       bail('bad data type from parent process: handleMessage')
       return
     }
@@ -134,6 +136,7 @@ class LambdaWorker {
 
   /**
    * @param {string} id
+   * @returns {void}
    */
   removeRoutes (id) {
     process.stdout.write = globalStdoutWrite
@@ -163,6 +166,7 @@ class LambdaWorker {
    * @param {Record<string, string>} routes
    * @param {Record<string, string>} env
    * @param {boolean} silent
+   * @returns {void}
    */
   addRoutes (id, routes, env, silent) {
     this.knownGatewayInfos.push({
@@ -181,8 +185,12 @@ class LambdaWorker {
     this.rebuildEnv()
     for (const key of Object.keys(routes)) {
       const lambdaFile = routes[key]
-      this.lambdaFunctions[lambdaFile] = require(lambdaFile)
+
+      const fn = dynamicLambdaRequire(lambdaFile)
+      this.lambdaFunctions[lambdaFile] = fn
     }
+
+    const requireCache = globalRequire.cache
 
     /**
      * We want the semantics of reloading the lambdas every
@@ -192,10 +200,10 @@ class LambdaWorker {
      * is created we re-load the lambda and re-evaluate
      * the startup logic in it.
      */
-    for (const key of Object.keys(globalRequire.cache)) {
-      globalRequire.cache[key].children = []
-      // tslint:disable-next-line: no-dynamic-delete
-      delete globalRequire.cache[key]
+    for (const key of Object.keys(requireCache)) {
+      requireCache[key].children = []
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete requireCache[key]
     }
 
     this.rebuildRoutes()
@@ -221,6 +229,7 @@ class LambdaWorker {
 
   /**
    * @param {GatewayInfo[]} knownGatewayInfos
+   * @returns {void}
    */
   handleStartMessage (knownGatewayInfos) {
     for (const info of knownGatewayInfos) {
@@ -231,6 +240,7 @@ class LambdaWorker {
   /**
    * @param {string} id
    * @param {Record<string, unknown>} eventObject
+   * @returns {void}
    */
   handleEventMessage (id, eventObject) {
     const path = eventObject.path
@@ -288,6 +298,7 @@ class LambdaWorker {
    * @param {string} id
    * @param {Record<string, unknown>} eventObject
    * @param {LambdaFunction} fn
+   * @returns {void}
    */
   invokeLambda (id, eventObject, fn) {
     /**
@@ -316,7 +327,7 @@ class LambdaWorker {
     if (maybePromise) {
       maybePromise.then((result) => {
         this.sendResult(id, result)
-      }, (err) => {
+      }, (/** @type {Error} */ err) => {
         this.sendError(id, err)
       })
     }
@@ -325,6 +336,7 @@ class LambdaWorker {
   /**
    * @param {string} id
    * @param {Error} err
+   * @returns {void}
    */
   sendError (id, err) {
     console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err)
@@ -347,6 +359,7 @@ class LambdaWorker {
   /**
    * @param {string} id
    * @param {LambdaResult} result
+   * @returns {void}
    */
   sendResult (id, result) {
     if (typeof process.send !== 'function') {
@@ -388,13 +401,16 @@ function isStringDictionary (v) {
 
 function main () {
   const worker = new LambdaWorker()
-  process.on('message', (msg) => {
+  process.on('message', (
+    /** @type {Record<string, unknown>} */ msg
+  ) => {
     worker.handleMessage(msg)
   })
 }
 
 /**
  * @param {string} msg
+ * @returns {void}
  */
 function bail (msg) {
   process.stderr.write(
@@ -416,3 +432,13 @@ function noop (_buf) {
 }
 
 main()
+
+/**
+ * @param {string} fileName
+ * @returns {LambdaFunction}
+ */
+function dynamicLambdaRequire (fileName) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const fn = /** @type {LambdaFunction} */ (require(fileName))
+  return fn
+}

@@ -27,7 +27,7 @@ test('calling /hello with requestContext sync', {
 })
 
 test('calling /hello with requestContext async', {
-  requestContext: async () => {
+  requestContext: () => {
     return {
       greeter: 'Timothy'
     }
@@ -72,6 +72,7 @@ test('calling /hello many times', async (harness, assert) => {
 
 test('calling /hello many times in parallel',
   async (harness, assert) => {
+    /** @type {Promise<import('node-fetch').Response>[]} */
     const tasks = []
     for (let i = 0; i < 5; i++) {
       tasks.push(harness.fetch('/hello'))

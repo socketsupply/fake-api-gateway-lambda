@@ -69,6 +69,7 @@ const WORKER_PATH = path.join(__dirname, 'worker.js')
 
 class WorkerPool {
   constructor () {
+    /** @type {number} */
     this.maxWorkers = 10
 
     /** @type {WorkerInfo[]} */
@@ -87,6 +88,7 @@ class WorkerPool {
    * @param {Record<string, string>} env
    * @param {boolean} silent
    * @param {WorkerPoolHandler} handler
+   * @returns {void}
    */
   register (gatewayId, routes, env, silent, handler) {
     this.knownGatewayInfos.push({
@@ -114,6 +116,7 @@ class WorkerPool {
    * @param {Record<string, string>} _env
    * @param {boolean} _silent
    * @param {WorkerPoolHandler} handler
+   * @returns {void}
    */
   deregister (
     gatewayId,
@@ -168,7 +171,7 @@ class WorkerPool {
   }
 
   /**
-   *
+   * @returns {Promise<void>}
    */
   async waitForFreeWorker () {
     if (this.freeWorkerWG) {
@@ -183,6 +186,7 @@ class WorkerPool {
   /**
    * @param {string} id
    * @param {object} eventObject
+   * @returns {Promise<void>}
    */
   async dispatch (id, eventObject) {
     const w = await this.getFreeWorker()
@@ -197,16 +201,20 @@ class WorkerPool {
    * Helper method to cast & invoke unref if it exists
    *
    * @param {unknown} arg
+   * @returns {void}
    */
   invokeUnref (arg) {
-    const obj = /** @type {Unrefable} */ (arg)
+    const obj = /** @type {Unrefable | null | { unref: unknown }} */ (arg)
     if (obj && obj.unref && typeof obj.unref === 'function') {
       obj.unref()
     }
   }
 
   /**
-   *
+   * @returns {{
+   *    proc: childProcess.ChildProcess,
+   *    handlingRequest: boolean
+   * }}
    */
   spawnWorker () {
     const proc = childProcess.spawn(
@@ -241,7 +249,9 @@ class WorkerPool {
       this.invokeUnref(proc.stderr)
       proc.stderr.pipe(process.stderr)
     }
-    proc.on('message', (msg) => {
+    proc.on('message', (
+      /** @type {Record<string, unknown>} */ msg
+    ) => {
       this.handleMessage(msg, info)
     })
 
@@ -261,9 +271,10 @@ class WorkerPool {
   /**
    * @param {Record<string, unknown>} msg
    * @param {WorkerInfo} info
+   * @returns {void}
    */
   handleMessage (msg, info) {
-    if (!msg || typeof msg !== 'object') {
+    if (typeof msg !== 'object' || Object.is(msg, null)) {
       throw new Error('bad data type from child process')
     }
 
@@ -314,22 +325,40 @@ class FakeApiGatewayLambda {
       })
     }
 
+    /** @type {number | null} */
     this.httpsPort = options.httpsPort || null
+    /** @type {number} */
     this.port = options.port || 0
+    /** @type {Record<string, string>} */
     this.routes = { ...options.routes }
+    /** @type {Record<string, string>} */
     this.env = options.env || {}
+    /** @type {boolean} */
     this.enableCors = options.enableCors || false
+    /** @type {boolean} */
     this.silent = options.silent || false
+    /** @type {string | null} */
     this.hostPort = null
+    /**
+     * @type {Map<string, {
+     *    req: http.IncomingMessage,
+     *    res: http.ServerResponse,
+     *    id: string
+     * }>}
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.pendingRequests = new Map()
+    /** @type {string} */
     this.gatewayId = cuuid()
+    /** @type {PopulateRequestContextFn | null} */
     this.populateRequestContext = options.populateRequestContext || null
 
+    /** @type {WorkerPool} */
     this.workerPool = FakeApiGatewayLambda.WORKER_POOL
   }
 
   /**
-   *
+   * @returns {Promise<string>}
    */
   async bootstrap () {
     if (!this.httpServer) {
@@ -337,16 +366,16 @@ class FakeApiGatewayLambda {
     }
 
     this.httpServer.on('request', (
-      req,
-      res
+      /** @type {http.IncomingMessage} */ req,
+      /** @type {http.ServerResponse} */ res
     ) => {
       this.handleServerRequest(req, res)
     })
 
     if (this.httpsServer) {
       this.httpsServer.on('request', (
-        req,
-        res
+        /** @type {http.IncomingMessage} */ req,
+        /** @type {http.ServerResponse} */ res
       ) => {
         this.handleServerRequest(req, res)
       })
@@ -387,6 +416,9 @@ class FakeApiGatewayLambda {
     return this.hostPort
   }
 
+  /**
+   * @returns {Promise<void>}
+   */
   async close () {
     if (this.httpServer === null) {
       return
@@ -427,6 +459,7 @@ class FakeApiGatewayLambda {
 
   /**
    * @param {string} id
+   * @returns {any}
    */
   hasPendingRequest (id) {
     return this.pendingRequests.has(id)
@@ -435,6 +468,7 @@ class FakeApiGatewayLambda {
   /**
    * @param {string} id
    * @param {LambdaResult} result
+   * @returns {void}
    */
   handleLambdaResult (id, result) {
     const pending = this.pendingRequests.get(id)
@@ -469,6 +503,7 @@ class FakeApiGatewayLambda {
   /**
    * @param {http.IncomingMessage} req
    * @param {http.ServerResponse} res
+   * @returns {void}
    */
   handleServerRequest (
     req,
@@ -499,7 +534,7 @@ class FakeApiGatewayLambda {
     const uriObj = url.parse(reqUrl, true)
 
     let body = ''
-    req.on('data', (chunk) => {
+    req.on('data', (/** @type {Buffer} */ chunk) => {
       body += chunk.toString()
     })
     req.on('end', () => {
@@ -533,7 +568,7 @@ class FakeApiGatewayLambda {
 
       if (this.populateRequestContext) {
         const reqContext = this.populateRequestContext(eventObject)
-        if ('then' in reqContext && reqContext.then) {
+        if ('then' in reqContext && typeof reqContext.then === 'function') {
           reqContext.then((
             /** @type {object} */ reqContext
           ) => {
@@ -559,10 +594,11 @@ class FakeApiGatewayLambda {
   /**
    * @param {string} id
    * @param {object} eventObject
+   * @returns {void}
    */
   dispatch (id, eventObject) {
     this.workerPool.dispatch(id, eventObject)
-      .catch((err) => {
+      .catch((/** @type {Error} */ err) => {
         process.nextTick(() => {
           throw err
         })
@@ -574,7 +610,7 @@ exports.FakeApiGatewayLambda = FakeApiGatewayLambda
 
 /**
  * @param {unknown} v
- * @return {v is LambdaResult}
+ * @returns {v is LambdaResult}
  */
 function checkResult (v) {
   if (typeof v !== 'object' || !v) {
@@ -592,7 +628,7 @@ function checkResult (v) {
     return false
   }
 
-  const mvHeaders = Reflect.get(objValue, 'multiValueHeaders')
+  const mvHeaders = /** @type {unknown} */ (Reflect.get(objValue, 'multiValueHeaders'))
   if (mvHeaders && typeof mvHeaders !== 'object') {
     return false
   }
@@ -662,6 +698,7 @@ function multiValueHeaders (h) {
 function flattenHeaders (h) {
   /** @type {Record<string, string>} */
   const out = {}
+  /** @type {string[]} */
   const deleteList = []
   for (let i = 0; i < h.length; i += 2) {
     const headerName = h[i]
@@ -674,13 +711,14 @@ function flattenHeaders (h) {
     }
   }
   for (const key of deleteList) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     delete out[key]
   }
   return out
 }
 
 /**
- *
+ * @returns {string}
  */
 function cuuid () {
   const str = (Date.now().toString(16) + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2)).slice(0, 32)
