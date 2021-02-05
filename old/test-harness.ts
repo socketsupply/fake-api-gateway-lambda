@@ -1,6 +1,6 @@
 'use strict';
 
-import * as tape from 'tape';
+import * as tape from '@pre-bundled/tape';
 import * as tapeCluster from 'tape-cluster';
 import * as path from 'path';
 import fetch from 'node-fetch';

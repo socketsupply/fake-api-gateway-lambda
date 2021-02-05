@@ -1,0 +1,21 @@
+{
+  "extends": "./_types/base-tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@pre-bundled/rimraf": ["_types/pre-bundled__rimraf"],
+      "@pre-bundled/tape": ["_types/pre-bundled__tape"],
+      "*" : ["_types/*"]
+    }
+  },
+  "include": [
+    "_types/**/*.d.ts",
+    "*.js",
+    "test/**/*",
+    "node_modules/tape-cluster/index.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "test/lambdas/hello.js"
+  ]
+}

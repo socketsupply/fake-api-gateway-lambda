@@ -2,6 +2,7 @@
 'use strict'
 
 const http = require('http')
+const https = require('https')
 const util = require('util')
 const childProcess = require('child_process')
 const path = require('path')
@@ -56,6 +57,9 @@ const WORKER_PATH = path.join(__dirname, 'worker.js')
     @typedef {{
         port?: number;
         env?: Record<string, string>;
+        httpsPort?: number,
+        httpsKey?: string,
+        httpsCert?: string,
         enableCors?: boolean;
         silent?: boolean;
         populateRequestContext?: PopulateRequestContextFn;
@@ -163,6 +167,9 @@ class WorkerPool {
     return this.getFreeWorker()
   }
 
+  /**
+   *
+   */
   async waitForFreeWorker () {
     if (this.freeWorkerWG) {
       return this.freeWorkerWG.wait()
@@ -188,6 +195,7 @@ class WorkerPool {
 
   /**
    * Helper method to cast & invoke unref if it exists
+   *
    * @param {unknown} arg
    */
   invokeUnref (arg) {
@@ -197,6 +205,9 @@ class WorkerPool {
     }
   }
 
+  /**
+   *
+   */
   spawnWorker () {
     const proc = childProcess.spawn(
       process.execPath,
@@ -293,6 +304,17 @@ class FakeApiGatewayLambda {
   constructor (options) {
     /** @type {http.Server | null} */
     this.httpServer = http.createServer()
+
+    /** @type {https.Server | null} */
+    this.httpsServer = null
+    if (options.httpsKey && options.httpsCert && options.httpsPort) {
+      this.httpsServer = https.createServer({
+        key: options.httpsKey,
+        cert: options.httpsCert
+      })
+    }
+
+    this.httpsPort = options.httpsPort || null
     this.port = options.port || 0
     this.routes = { ...options.routes }
     this.env = options.env || {}
@@ -306,6 +328,9 @@ class FakeApiGatewayLambda {
     this.workerPool = FakeApiGatewayLambda.WORKER_POOL
   }
 
+  /**
+   *
+   */
   async bootstrap () {
     if (!this.httpServer) {
       throw new Error('cannot bootstrap closed server')
@@ -318,6 +343,22 @@ class FakeApiGatewayLambda {
       this.handleServerRequest(req, res)
     })
 
+    if (this.httpsServer) {
+      this.httpsServer.on('request', (
+        req,
+        res
+      ) => {
+        this.handleServerRequest(req, res)
+      })
+
+      const httpsServer = this.httpsServer
+      await util.promisify((cb) => {
+        httpsServer.listen(this.httpsPort, () => {
+          cb(null, null)
+        })
+      })()
+    }
+
     const server = this.httpServer
     await util.promisify((cb) => {
       server.listen(this.port, () => {
@@ -326,9 +367,9 @@ class FakeApiGatewayLambda {
     })()
 
     /**
-         * We want to register that these routes should be handled
-         * by the following lambdas to the WORKER_POOL.
-         */
+     * We want to register that these routes should be handled
+     * by the following lambdas to the WORKER_POOL.
+     */
     this.workerPool.register(
       this.gatewayId,
       this.routes,
@@ -358,10 +399,21 @@ class FakeApiGatewayLambda {
       })
     })()
 
+    if (this.httpsServer) {
+      const httpsServer = this.httpServer
+      await util.promisify((cb) => {
+        httpsServer.close(() => {
+          cb(null, null)
+        })
+      })()
+
+      this.httpsServer = null
+    }
+
     /**
-         * Here we want to tell the WORKER_POOL to stop routing
-         * these URLs to the lambdas.
-         */
+     * Here we want to tell the WORKER_POOL to stop routing
+     * these URLs to the lambdas.
+     */
     this.workerPool.deregister(
       this.gatewayId,
       this.routes,
@@ -388,8 +440,8 @@ class FakeApiGatewayLambda {
     const pending = this.pendingRequests.get(id)
     if (!pending) {
       /**
-             * @raynos TODO: gracefully handle this edgecase.
-             */
+       * @raynos TODO: gracefully handle this edgecase.
+       */
       throw new Error('Could not find pending request')
     }
 
@@ -627,6 +679,9 @@ function flattenHeaders (h) {
   return out
 }
 
+/**
+ *
+ */
 function cuuid () {
   const str = (Date.now().toString(16) + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2)).slice(0, 32)
   return str.slice(0, 8) + '-' + str.slice(8, 12) + '-' + str.slice(12, 16) + '-' + str.slice(16, 20) + '-' + str.slice(20)
