@@ -265,7 +265,7 @@ class LambdaWorker {
 
       if (isPattern) {
         const braceStart = route.lastIndexOf('{')
-        const exactPrefix = route.slice(braceStart)
+        const exactPrefix = route.slice(0, braceStart)
 
         if (
           pathname.startsWith(exactPrefix) &&
