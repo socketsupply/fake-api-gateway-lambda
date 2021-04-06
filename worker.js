@@ -17,6 +17,8 @@ const globalRequire = require
 const globalStdoutWrite = process.stdout.write
 const globalStderrWrite = process.stderr.write
 
+const URL = require('url').URL
+
 /**
     @typedef {{
         routes: Record<string,string>;
@@ -249,9 +251,31 @@ class LambdaWorker {
       return
     }
 
-    const routePrefixes = Object.keys(this.routes)
-    for (const route of routePrefixes) {
-      if (path.startsWith(route)) {
+    const url = new URL(path, 'http://localhost:80')
+    const pathname = url.pathname
+
+    const routePatterns = Object.keys(this.routes)
+    for (const route of routePatterns) {
+      const isPattern = route.endsWith('+}')
+
+      let matched = false
+      if (!isPattern && pathname === route) {
+        matched = true
+      }
+
+      if (isPattern) {
+        const braceStart = route.lastIndexOf('{')
+        const exactPrefix = route.slice(braceStart)
+
+        if (
+          pathname.startsWith(exactPrefix) &&
+          pathname !== exactPrefix
+        ) {
+          matched = true
+        }
+      }
+
+      if (matched) {
         const fnName = this.routes[route]
         const lambda = this.lambdaFunctions[fnName]
         if (!lambda) {
