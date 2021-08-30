@@ -16,6 +16,7 @@
 const globalRequire = require
 const globalStdoutWrite = process.stdout.write
 const globalStderrWrite = process.stderr.write
+const matchRoute = require('./match')
 
 const URL = require('url').URL
 
@@ -254,38 +255,18 @@ class LambdaWorker {
     const url = new URL(path, 'http://localhost:80')
     const pathname = url.pathname
 
-    const routePatterns = Object.keys(this.routes)
-    for (const route of routePatterns) {
-      const isPattern = route.endsWith('+}')
+    var matched = matchRoute(this.routes, pathname)
 
-      let matched = false
-      if (!isPattern && pathname === route) {
-        matched = true
-      }
-
-      if (isPattern) {
-        const braceStart = route.lastIndexOf('{')
-        const exactPrefix = route.slice(0, braceStart)
-
-        if (
-          pathname.startsWith(exactPrefix) &&
-          pathname !== exactPrefix
-        ) {
-          matched = true
-        }
-      }
-
-      if (matched) {
-        const fnName = this.routes[route]
-        const lambda = this.lambdaFunctions[fnName]
-        if (!lambda) {
-          bail('could not find lambda ...')
-          return
-        }
-
-        this.invokeLambda(id, eventObject, lambda)
+    if (matched) {
+      const fnName = this.routes[matched]
+      const lambda = this.lambdaFunctions[fnName]
+      if (!lambda) {
+        bail('could not find lambda ...')
         return
       }
+
+      this.invokeLambda(id, eventObject, lambda)
+      return
     }
 
     this.sendResult(id, {
