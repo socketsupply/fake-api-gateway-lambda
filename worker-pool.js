@@ -3,7 +3,8 @@
 const childProcess = require('child_process')
 const path = require('path')
 const { WaitGroup } = require('./sync-wait-group')
-
+const matchRoute = require('./match')
+const {URL} = require('url')
 /**
 
   @typedef {{
@@ -68,11 +69,11 @@ class WorkerPool {
       silent
     })
     this.handlers.push(handler)
-
-/*
+    this.routes = this.routes || {}
     for(var key in routes) {
-      const newWorker = spawnWorker()
+      const newWorker = this.spawnWorker()
       newWorker.path = key
+      this.routes[key] = newWorker
       newWorker.proc.send({
         message: 'addRoutes',
         id: gatewayId,
@@ -80,7 +81,7 @@ class WorkerPool {
         env, silent
       })
     }
-*/
+/*
 
     for (const w of this.workers) {
       w.proc.send({
@@ -91,7 +92,7 @@ class WorkerPool {
         silent
       })
     }
-
+*/
   }
 
   /**
@@ -174,12 +175,18 @@ class WorkerPool {
    * @returns {Promise<void>}
    */
   async dispatch (id, eventObject) {
+    console.log("dispatch", id, eventObject)
+    const url = new URL(eventObject.path, 'http://localhost:80')
+
+    var matched = matchRoute(this.routes, url.pathname)
+
     const w = await this.getFreeWorker()
-    w.proc.send({
-      message: 'event',
-      id,
-      eventObject
-    })
+    if(matched)
+      this.routes[matched].proc.send({
+        message: 'event',
+        id,
+        eventObject
+      })
   }
 
   /**
