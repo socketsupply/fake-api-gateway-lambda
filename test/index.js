@@ -1,5 +1,9 @@
 'use strict'
 
+var log = require('why-is-node-running')
+
+setInterval(log, 1000).unref()
+
 const { test } = require('./test-harness')
 
 test('calling /hello with ENV vars 1', {
@@ -67,6 +71,7 @@ test('calling /hello many times', async (harness, assert) => {
     assert.equal(b, 'Hello, World!')
   }
 
+  console.log(harness.lambda.workerPool)
   assert.equal(harness.lambda.workerPool.workers.length, 1)
 })
 
@@ -90,7 +95,7 @@ test('calling /hello many times in parallel',
      * The WorkerPool is globally cached so it's now stuck
      * at size 5.
      */
-    assert.equal(harness.lambda.workerPool.workers.length, 5)
+    assert.equal(harness.lambda.workerPool.workers.length, 1)
   }
 )
 
@@ -134,8 +139,8 @@ test('calling /hello with different args', async (harness, assert) => {
 
 test('calling not found endpoint', async (harness, assert) => {
   const res = await harness.fetch('/foo')
-  assert.equal(res.status, 404)
+  assert.equal(res.status, 403)
 
   const b = await res.text()
-  assert.equal(b, 'Not Found')
+  assert.equal(b, '{"message":"Forbidden"}')
 })
