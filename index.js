@@ -7,6 +7,7 @@ const util = require('util')
 const url = require('url')
 const WorkerPool = require('./worker-pool')
 
+
 /**
     @typedef {{
         resource: string;
@@ -43,7 +44,7 @@ const WorkerPool = require('./worker-pool')
         multiValueHeaders?: Record<string, string[]>;
         body: string;
     }} LambdaResult
- */
+*/
 
 class FakeApiGatewayLambda {
   /**
@@ -91,7 +92,7 @@ class FakeApiGatewayLambda {
     this.populateRequestContext = options.populateRequestContext || null
 
     /** @type {WorkerPool} */
-    this.workerPool = FakeApiGatewayLambda.WORKER_POOL
+    this.workerPool = new WorkerPool() //FakeApiGatewayLambda.WORKER_POOL
   }
 
   /**
@@ -342,8 +343,9 @@ class FakeApiGatewayLambda {
       })
   }
 }
-FakeApiGatewayLambda.WORKER_POOL = new WorkerPool()
+//FakeApiGatewayLambda.WORKER_POOL = new WorkerPool()
 exports.FakeApiGatewayLambda = FakeApiGatewayLambda
+
 
 /**
  * @param {Record<string, string | string[]>} qs

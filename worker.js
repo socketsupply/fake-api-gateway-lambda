@@ -69,19 +69,10 @@ class LambdaWorker {
     const objMsg = msg
     const messageType = objMsg.message
     if (messageType === 'start') {
-      const knownGatewayInfos = objMsg.knownGatewayInfos
-      if (!knownGatewayInfos) {
-        bail('bad data type from parent process: start')
-        return
-      }
-
-      this.handleStartMessage(
-        /** @type {GatewayInfo[]} */ (knownGatewayInfos)
-      )
     } else if (messageType === 'event') {
       const id = objMsg.id
       if (typeof id !== 'string') {
-        bail('bad data type from parent process: event')
+        bail('missing id from parent process: event')
         return
       }
 
@@ -90,7 +81,7 @@ class LambdaWorker {
         typeof eventObject !== 'object' ||
         eventObject === null
       ) {
-        bail('bad data type from parent process: event')
+        bail('missing eventObject from parent process: event')
         return
       }
 

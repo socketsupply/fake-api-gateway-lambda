@@ -22,7 +22,7 @@ const {URL} = require('url')
 
   @typedef {{
       id: string,
-      routes: Record<string, string>,
+      route: string,
       env: Record<string, string>,
       silent: boolean
   }} GatewayInfo
@@ -45,8 +45,8 @@ class WorkerPool {
 
     /** @type {WorkerInfo[]} */
     this.workers = []
-    /** @type {GatewayInfo[]} */
-    this.knownGatewayInfos = []
+//    /** @type {GatewayInfo[]} */
+//    this.knownGatewayInfos = []
     /** @type {WorkerPoolHandler[]} */
     this.handlers = []
     /** @type {WaitGroup | null} */
@@ -62,37 +62,25 @@ class WorkerPool {
    * @returns {void}
    */
   register (gatewayId, routes, env, silent, handler) {
-    this.knownGatewayInfos.push({
-      id: gatewayId,
-      routes,
-      env,
-      silent
-    })
     this.handlers.push(handler)
     this.routes = this.routes || {}
-    for(var key in routes) {
+    for(var route in routes) {
+   /*   this.knownGatewayInfos.push({
+        id: gatewayId,
+        route,
+        env,
+        silent
+      })*/
       const newWorker = this.spawnWorker()
-      newWorker.path = key
-      this.routes[key] = newWorker
+      newWorker.path = route
+      this.routes[route] = newWorker
       newWorker.proc.send({
         message: 'addRoutes',
         id: gatewayId,
-        routes: {[key]:routes[key]},
+        routes: {[route]: routes[route]},
         env, silent
       })
     }
-/*
-
-    for (const w of this.workers) {
-      w.proc.send({
-        message: 'addRoutes',
-        id: gatewayId,
-        routes,
-        env,
-        silent
-      })
-    }
-*/
   }
 
   /**
@@ -110,35 +98,22 @@ class WorkerPool {
     _silent,
     handler
   ) {
-    let index = -1
-    for (let i = 0; i < this.knownGatewayInfos.length; i++) {
-      const v = this.knownGatewayInfos[i]
-      if (v.routes === routes) {
-        index = i
-        break
-      }
+    for (var key in routes) {
+      this.routes[key].proc.kill(0)
     }
-
-    if (index === -1) {
-      throw new Error('found weird index')
-    }
-
-    this.knownGatewayInfos.splice(index, 1)
+    //why is handlers an array?
+    //It must be related to there being one global worker pool.
+    //so much easier to have the gateway own the wp, so now there
+    //should only be one handler...
     this.handlers.splice(this.handlers.indexOf(handler), 1)
-
-    //XXX
-    for (const w of this.workers) {
-      w.proc.send({
-        message: 'removeRoutes',
-        id: gatewayId
-      })
-    }
   }
 
   /**
    * @returns {Promise<WorkerInfo>}
    */
-  async getFreeWorker () {
+  async getFreeWorker (route) {
+    throw new Error('get free worker')
+    /*    
     for (const w of this.workers) {
       if (!w.handlingRequest) {
         w.handlingRequest = true
@@ -154,12 +129,15 @@ class WorkerPool {
 
     await this.waitForFreeWorker()
     return this.getFreeWorker()
+    */
   }
 
   /**
    * @returns {Promise<void>}
    */
   async waitForFreeWorker () {
+    throw new Error('wait for free worker')
+    /*
     if (this.freeWorkerWG) {
       return this.freeWorkerWG.wait()
     }
@@ -167,6 +145,7 @@ class WorkerPool {
     this.freeWorkerWG = new WaitGroup()
     this.freeWorkerWG.add(1)
     return this.freeWorkerWG.wait()
+    */
   }
 
   /**
@@ -175,18 +154,31 @@ class WorkerPool {
    * @returns {Promise<void>}
    */
   async dispatch (id, eventObject) {
-    console.log("dispatch", id, eventObject)
     const url = new URL(eventObject.path, 'http://localhost:80')
 
     var matched = matchRoute(this.routes, url.pathname)
 
-    const w = await this.getFreeWorker()
     if(matched)
       this.routes[matched].proc.send({
         message: 'event',
         id,
         eventObject
       })
+    else
+      //before, the error didn't happen until it got to the worker,
+      //but now the worker only has one lambda so it's here now.
+      for (const h of this.handlers) {
+        if (h.hasPendingRequest(id)) {
+          h.handleLambdaResult(id, {
+            isBase64Encoded: false,
+            statusCode: 403, //the real api-gateway does a 403.
+            headers: {},
+            body: JSON.stringify({message: "Forbidden"}),
+            multiValueHeaders: {}
+          })
+          break
+        }
+      }
   }
 
   /**
@@ -217,7 +209,7 @@ class WorkerPool {
         detached: false
       }
     )
-
+    
     /**
      * Since this is a workerpool we unref the child processes
      * so that they do not keep the process open. This is because
@@ -231,6 +223,8 @@ class WorkerPool {
       proc: proc,
       handlingRequest: false
     }
+    console.log(new Error('sw').stack)
+    console.log("WORKER PUSH", this.workers.length)
     this.workers.push(info)
 
     if (proc.stdout) {
@@ -251,6 +245,10 @@ class WorkerPool {
       if (code !== 0) {
         throw new Error('worker process exited non-zero')
       }
+    })
+
+    proc.on('error', function (err) {
+      console.error(err)
     })
 
     proc.send({
@@ -297,6 +295,7 @@ class WorkerPool {
       this.freeWorkerWG.done()
       this.freeWorkerWG = null
     }
+    
   }
 }
 
