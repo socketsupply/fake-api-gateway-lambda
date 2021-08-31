@@ -71,15 +71,15 @@ class WorkerPool {
         env,
         silent
       })*/
-      const newWorker = this.spawnWorker()
+      const newWorker = this.spawnWorker(routes[route], env)
       newWorker.path = route
       this.routes[route] = newWorker
-      newWorker.proc.send({
+/*      newWorker.proc.send({
         message: 'addRoutes',
         id: gatewayId,
         routes: {[route]: routes[route]},
         env, silent
-      })
+      })*/
     }
   }
 
@@ -200,13 +200,14 @@ class WorkerPool {
    *    handlingRequest: boolean
    * }}
    */
-  spawnWorker () {
+  spawnWorker (entry, env, handler) {
     const proc = childProcess.spawn(
       process.execPath,
-      [WORKER_PATH],
+      [WORKER_PATH, entry, handler],
       {
         stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-        detached: false
+        detached: false,
+        env: env
       }
     )
     
@@ -224,7 +225,7 @@ class WorkerPool {
       handlingRequest: false
     }
     console.log(new Error('sw').stack)
-    console.log("WORKER PUSH", this.workers.length)
+//    console.log("WORKER PUSH", this.workers.length)
     this.workers.push(info)
 
     if (proc.stdout) {
@@ -251,10 +252,6 @@ class WorkerPool {
       console.error(err)
     })
 
-    proc.send({
-      message: 'start',
-      knownGatewayInfos: this.knownGatewayInfos
-    })
     return info
   }
 

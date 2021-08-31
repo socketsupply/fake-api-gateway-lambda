@@ -22,7 +22,7 @@ const URL = require('url').URL
 
 /**
     @typedef {{
-        routes: Record<string,string>;
+        route: string;
         env: Record<string, string>;
         id: string;
         silent: boolean;
@@ -44,16 +44,20 @@ const URL = require('url').URL
  */
 
 class LambdaWorker {
-  constructor () {
+  constructor (entry, env, handler) {
     /** @type {GatewayInfo[]} */
-    this.knownGatewayInfos = []
+//    this.knownGatewayInfos = []
     /** @type {Record<string, string>} */
-    this.routes = {}
+  //  this.routes = {}
     /** @type {Record<string, LambdaFunction | undefined>} */
-    this.lambdaFunctions = {}
+    //this.lambdaFunctions = {}
 
     /** @type {Record<string, string | undefined>} */
-    this.globalEnv = { ...process.env }
+    this.globalEnv = { ...env }
+    this.entry = entry
+
+    this.lambdaFunction = dynamicLambdaRequire(entry)
+    this.handler = handler
   }
 
   /**
@@ -68,8 +72,9 @@ class LambdaWorker {
 
     const objMsg = msg
     const messageType = objMsg.message
-    if (messageType === 'start') {
-    } else if (messageType === 'event') {
+    /*if (messageType === 'start') {
+    } else */
+    if (messageType === 'event') {
       const id = objMsg.id
       if (typeof id !== 'string') {
         bail('missing id from parent process: event')
@@ -85,209 +90,11 @@ class LambdaWorker {
         return
       }
 
-      this.handleEventMessage(
-        id,
-        /** @type {Record<string, unknown>} */ (eventObject)
-      )
-    } else if (messageType === 'addRoutes') {
-      const routes = objMsg.routes
-      if (!isStringDictionary(routes)) {
-        bail('bad data type from parent process: addRoutes')
-        return
-      }
-
-      const id = objMsg.id
-      if (typeof id !== 'string') {
-        bail('bad data type from parent process: addRoutes')
-        return
-      }
-
-      const env = objMsg.env
-      if (!isStringDictionary(env)) {
-        bail('bad data type from parent process: addRoutes')
-        return
-      }
-
-      const silent = objMsg.silent
-      if (typeof silent !== 'boolean') {
-        bail('bad data type from parent process: addRoutes')
-        return
-      }
-
-      this.addRoutes(id, routes, env, silent)
-    } else if (messageType === 'removeRoutes') {
-      const id = objMsg.id
-      if (typeof id !== 'string') {
-        bail('bad data type from parent process: removeRoutes')
-        return
-      }
-
-      this.removeRoutes(id)
+      this.invokeLambda(id, eventObject)
     } else {
+      console.log(msg)
       bail('bad data type from parent process: unknown')
     }
-  }
-
-  /**
-   * @param {string} id
-   * @returns {void}
-   */
-  removeRoutes (id) {
-    process.stdout.write = globalStdoutWrite
-    process.stderr.write = globalStderrWrite
-
-    let foundIndex = -1
-    for (let i = 0; i < this.knownGatewayInfos.length; i++) {
-      const r = this.knownGatewayInfos[i]
-      if (r.id === id) {
-        foundIndex = i
-        break
-      }
-    }
-
-    if (foundIndex === -1) {
-      bail('cannot removeRoutes for route that we do not know about')
-      return
-    }
-
-    this.knownGatewayInfos.splice(foundIndex, 1)
-    this.rebuildRoutes()
-    this.rebuildEnv()
-  }
-
-  /**
-   * @param {string} id
-   * @param {Record<string, string>} routes
-   * @param {Record<string, string>} env
-   * @param {boolean} silent
-   * @returns {void}
-   */
-  addRoutes (id, routes, env, silent) {
-    this.knownGatewayInfos.push({
-      id, routes, env, silent
-    })
-
-    if (silent) {
-      process.stdout.write = noop
-      process.stderr.write = noop
-    }
-
-    /**
-     * Import to initialize the ENV of this worker before
-     * actually requiring the lambda code.
-     */
-    this.rebuildEnv()
-    for (const key of Object.keys(routes)) {
-      const lambdaFile = routes[key]
-
-      const fn = dynamicLambdaRequire(lambdaFile)
-      this.lambdaFunctions[lambdaFile] = fn
-    }
-
-    const requireCache = globalRequire.cache
-
-    /**
-     * We want the semantics of reloading the lambdas every
-     * time addRoutes is send to the worker process.
-     *
-     * This means every time a new ApiGatewayLambdaServer
-     * is created we re-load the lambda and re-evaluate
-     * the startup logic in it.
-     */
-    for (const key of Object.keys(requireCache)) {
-      requireCache[key].children = []
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete requireCache[key]
-    }
-
-    this.rebuildRoutes()
-  }
-
-  rebuildRoutes () {
-    /**
-     * Copy over route definition with last write wins confict
-     * resolution.
-     */
-    /** @type {Record<string, string>} */
-    const result = {}
-
-    for (const info of this.knownGatewayInfos) {
-      const routes = info.routes
-      for (const key of Object.keys(routes)) {
-        result[key] = routes[key]
-      }
-    }
-
-    this.routes = result
-  }
-
-  /**
-   * @param {GatewayInfo[]} knownGatewayInfos
-   * @returns {void}
-   */
-  handleStartMessage (knownGatewayInfos) {
-    for (const info of knownGatewayInfos) {
-      this.addRoutes(info.id, info.routes, info.env, info.silent)
-    }
-  }
-
-  /**
-   * @param {string} id
-   * @param {Record<string, unknown>} eventObject
-   * @returns {void}
-   */
-  handleEventMessage (id, eventObject) {
-    const path = eventObject.path
-    if (typeof path !== 'string') {
-      bail('bad data type from parent process')
-      return
-    }
-
-    const url = new URL(path, 'http://localhost:80')
-    const pathname = url.pathname
-
-    var matched = matchRoute(this.routes, pathname)
-
-    if (matched) {
-      const fnName = this.routes[matched]
-      const lambda = this.lambdaFunctions[fnName]
-      if (!lambda) {
-        bail('could not find lambda ...')
-        return
-      }
-
-      this.invokeLambda(id, eventObject, lambda)
-      return
-    }
-
-    this.sendResult(id, {
-      isBase64Encoded: false,
-      statusCode: 404,
-      headers: {},
-      body: 'Not Found',
-      multiValueHeaders: {}
-    })
-  }
-
-  rebuildEnv () {
-    const envCopy = { ...this.globalEnv }
-
-    for (const info of this.knownGatewayInfos) {
-      Object.assign(envCopy, info.env)
-    }
-
-    /**
-     * We overwrite the environment of the entire process
-     * here.
-     *
-     * This is done so that you can configure the environment
-     * variables when "invoking" or "spawning" the lambda
-     * from the FakeApiGatewayLambda class.
-     *
-     * This is the primary vehicle for passing arguments into
-     * the lambda when writing tests.
-     */
-    process.env = envCopy
   }
 
   /**
@@ -311,7 +118,7 @@ class LambdaWorker {
      * that we can borrow implementations from.
      */
 
-    const maybePromise = fn.handler(eventObject, {}, (err, result) => {
+    const maybePromise = this.lambdaFunction.handler(eventObject, {}, (err, result) => {
       if (!result) {
         this.sendError(id, err)
         return
@@ -346,8 +153,7 @@ class LambdaWorker {
       isBase64Encoded: false,
       statusCode: 500,
       headers: {},
-      body: 'fake-api-gateway-lambda: ' +
-                'Lambda rejected promise: ' + err.message,
+      body: 'fake-api-gateway-lambda: ' + (err && err.message || err),
       multiValueHeaders: {}
     })
   }
@@ -396,7 +202,7 @@ function isStringDictionary (v) {
 }
 
 function main () {
-  const worker = new LambdaWorker()
+  const worker = new LambdaWorker(process.argv[2], process.env, process.argv[3] || 'handler')
   process.on('message', (
     /** @type {Record<string, unknown>} */ msg
   ) => {
@@ -427,7 +233,7 @@ function noop (_buf) {
   return false
 }
 
-main()
+if(require.main) main()
 
 /**
  * @param {string} fileName
@@ -435,6 +241,5 @@ main()
  */
 function dynamicLambdaRequire (fileName) {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const fn = /** @type {LambdaFunction} */ (require(fileName))
-  return fn
+  return /** @type {LambdaFunction} */ (require(fileName))
 }
