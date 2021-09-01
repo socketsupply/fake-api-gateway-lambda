@@ -22,7 +22,6 @@
     "//verify-included": "bash scripts/verify-included.sh",
     "//view-cover": "opn ./coverage/index.html"
   },
-  "dependencies": {},
   "binDependencies": {
     "tsdocstandard": "16.2.2",
     "type-coverage": "2.13.3",
@@ -43,7 +42,7 @@
     "@types/node": "12.0.2",
     "aws-sdk": "2.549.0",
     "collapsed-assert": "1.0.3",
-    "node-fetch": "2.6.0",
+    "node-fetch": "3.0.0",
     "npm-bin-deps": "1.10.1",
     "tape-cluster": "3.2.1"
   },
