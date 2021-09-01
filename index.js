@@ -304,6 +304,7 @@ class FakeApiGatewayLambda {
       const id = cuuid()
       this.pendingRequests.set(id, { req, res, id })
 
+      
       if (this.populateRequestContext) {
         const reqContext = this.populateRequestContext(eventObject)
         if ('then' in reqContext && typeof reqContext.then === 'function') {
@@ -311,7 +312,9 @@ class FakeApiGatewayLambda {
             /** @type {object} */ reqContext
           ) => {
             eventObject.requestContext = reqContext
-            this.dispatch(id, eventObject)
+            this.dispatch(id, eventObject).then((obj) => {
+              this.handleLambdaResult(id, obj)
+            })
           }).catch((
             /** @type {Error} */ err
           ) => {
@@ -321,10 +324,14 @@ class FakeApiGatewayLambda {
           })
         } else {
           eventObject.requestContext = reqContext
-          this.dispatch(id, eventObject)
+          this.dispatch(id, eventObject).then((obj) => {
+              this.handleLambdaResult(id, obj)
+            })
         }
       } else {
-        this.dispatch(id, eventObject)
+        this.dispatch(id, eventObject).then((obj) => {
+              this.handleLambdaResult(id, obj)
+            })
       }
     })
   }
@@ -335,12 +342,7 @@ class FakeApiGatewayLambda {
    * @returns {void}
    */
   dispatch (id, eventObject) {
-    this.workerPool.dispatch(id, eventObject)
-      .catch((/** @type {Error} */ err) => {
-        process.nextTick(() => {
-          throw err
-        })
-      })
+    return this.workerPool.dispatch(id, eventObject)
   }
 }
 //FakeApiGatewayLambda.WORKER_POOL = new WorkerPool()

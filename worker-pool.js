@@ -37,16 +37,8 @@ const {URL} = require('url')
 
  */
 
-const WORKER_PATH = path.join(__dirname, 'worker.js')
 class WorkerPool {
   constructor () {
-    /** @type {number} */
-    this.maxWorkers = 10
-
-    /** @type {WorkerInfo[]} */
-    this.workers = []
-//    /** @type {GatewayInfo[]} */
-//    this.knownGatewayInfos = []
     /** @type {WorkerPoolHandler[]} */
     this.handlers = []
     /** @type {WaitGroup | null} */
@@ -71,15 +63,8 @@ class WorkerPool {
         env,
         silent
       })*/
-      const newWorker = this.spawnWorker(routes[route], env)
-      newWorker.path = route
-      this.routes[route] = newWorker
-/*      newWorker.proc.send({
-        message: 'addRoutes',
-        id: gatewayId,
-        routes: {[route]: routes[route]},
-        env, silent
-      })*/
+      const newWorker = this.routes[route] =
+        new ChildProcessWorker(route, routes[route], env, handler)
     }
   }
 
@@ -99,53 +84,13 @@ class WorkerPool {
     handler
   ) {
     for (var key in routes) {
-      this.routes[key].proc.kill(0)
+      this.routes[key].close(0)
     }
     //why is handlers an array?
     //It must be related to there being one global worker pool.
     //so much easier to have the gateway own the wp, so now there
     //should only be one handler...
     this.handlers.splice(this.handlers.indexOf(handler), 1)
-  }
-
-  /**
-   * @returns {Promise<WorkerInfo>}
-   */
-  async getFreeWorker (route) {
-    throw new Error('get free worker')
-    /*    
-    for (const w of this.workers) {
-      if (!w.handlingRequest) {
-        w.handlingRequest = true
-        return w
-      }
-    }
-
-    if (this.workers.length < this.maxWorkers) {
-      const w = this.spawnWorker()
-      w.handlingRequest = true
-      return w
-    }
-
-    await this.waitForFreeWorker()
-    return this.getFreeWorker()
-    */
-  }
-
-  /**
-   * @returns {Promise<void>}
-   */
-  async waitForFreeWorker () {
-    throw new Error('wait for free worker')
-    /*
-    if (this.freeWorkerWG) {
-      return this.freeWorkerWG.wait()
-    }
-
-    this.freeWorkerWG = new WaitGroup()
-    this.freeWorkerWG.add(1)
-    return this.freeWorkerWG.wait()
-    */
   }
 
   /**
@@ -159,14 +104,20 @@ class WorkerPool {
     var matched = matchRoute(this.routes, url.pathname)
 
     if(matched)
-      this.routes[matched].proc.send({
-        message: 'event',
-        id,
-        eventObject
-      })
+      return this.routes[matched].request(id, eventObject)
     else
+      return new Promise((resolve) => {
+        resolve({
+            isBase64Encoded: false,
+            statusCode: 403, //the real api-gateway does a 403.
+            headers: {},
+            body: JSON.stringify({message: "Forbidden"}),
+            multiValueHeaders: {}
+          })
+      })
       //before, the error didn't happen until it got to the worker,
       //but now the worker only has one lambda so it's here now.
+      /*
       for (const h of this.handlers) {
         if (h.hasPendingRequest(id)) {
           h.handleLambdaResult(id, {
@@ -178,7 +129,7 @@ class WorkerPool {
           })
           break
         }
-      }
+      }*/
   }
 
   /**
@@ -187,12 +138,6 @@ class WorkerPool {
    * @param {unknown} arg
    * @returns {void}
    */
-  invokeUnref (arg) {
-    const obj = /** @type {Unrefable | null | { unref: unknown }} */ (arg)
-    if (obj && obj.unref && typeof obj.unref === 'function') {
-      obj.unref()
-    }
-  }
 
   /**
    * @returns {{
@@ -201,7 +146,25 @@ class WorkerPool {
    * }}
    */
   spawnWorker (entry, env, handler) {
-    const proc = childProcess.spawn(
+  }
+
+  /**
+   * @param {Record<string, unknown>} msg
+   * @param {WorkerInfo} info
+   * @returns {void}
+   */
+  handleMessage (msg, info) {
+    
+  }
+}
+
+const WORKER_PATH = path.join(__dirname, 'worker.js')
+
+class ChildProcessWorker {
+  constructor (path, entry, env, handler) {
+    this.responses = {}
+    this.path = path
+    const proc = this.proc = childProcess.spawn(
       process.execPath,
       [WORKER_PATH, entry, handler],
       {
@@ -218,33 +181,55 @@ class WorkerPool {
      * many instances of the FakeApiGatewayLambda instances.
      */
     proc.unref()
-    this.invokeUnref(proc.channel)
+    invokeUnref(proc.channel)
 
     const info = {
       proc: proc,
       handlingRequest: false
     }
-    console.log(new Error('sw').stack)
-//    console.log("WORKER PUSH", this.workers.length)
-    this.workers.push(info)
 
     if (proc.stdout) {
-      this.invokeUnref(proc.stdout)
+      invokeUnref(proc.stdout)
       proc.stdout.pipe(process.stdout)
     }
     if (proc.stderr) {
-      this.invokeUnref(proc.stderr)
+      invokeUnref(proc.stderr)
       proc.stderr.pipe(process.stderr)
     }
     proc.on('message', (
       /** @type {Record<string, unknown>} */ msg
     ) => {
-      this.handleMessage(msg, info)
+      if (typeof msg !== 'object' || Object.is(msg, null)) {
+        throw new Error('bad data type from child process')
+      }
+
+      const messageType = msg.message
+      if (messageType !== 'result') {
+        throw new Error('incorrect type field from child process:' + msg.type)
+      }
+
+      const id = msg.id
+      if (typeof id !== 'string') {
+        throw new Error('missing id from child process:'+msg.id)
+      }
+
+      const resultObj = msg.result
+      if (!checkResult(resultObj)) {
+        throw new Error('missing result from child process:'+msg.result)
+      }
+
+      var response = this.responses[msg.id]
+      if(response) {
+        delete this.responses[msg.id]
+        response.resolve(resultObj)
+      }
+      else
+        throw new Error('unknown response id from child process:' + msg.id)
     })
 
     proc.once('exit', (code) => {
       if (code !== 0) {
-        throw new Error('worker process exited non-zero')
+        throw new Error('worker process exited non-zero:'+code)
       }
     })
 
@@ -252,49 +237,29 @@ class WorkerPool {
       console.error(err)
     })
 
-    return info
   }
-
-  /**
-   * @param {Record<string, unknown>} msg
-   * @param {WorkerInfo} info
-   * @returns {void}
-   */
-  handleMessage (msg, info) {
-    if (typeof msg !== 'object' || Object.is(msg, null)) {
-      throw new Error('bad data type from child process')
-    }
-
-    const messageType = msg.message
-    if (messageType !== 'result') {
-      throw new Error('bad data type from child process')
-    }
-
-    const id = msg.id
-    if (typeof id !== 'string') {
-      throw new Error('bad data type from child process')
-    }
-
-    const resultObj = msg.result
-    if (!checkResult(resultObj)) {
-      throw new Error('bad data type from child process')
-    }
-
-    for (const h of this.handlers) {
-      if (h.hasPendingRequest(id)) {
-        h.handleLambdaResult(id, resultObj)
-        break
-      }
-    }
-
-    info.handlingRequest = false
-    if (this.freeWorkerWG) {
-      this.freeWorkerWG.done()
-      this.freeWorkerWG = null
-    }
-    
+  request (id, eventObject) {
+    this.proc.send({
+      message: 'event',
+      id,
+      eventObject
+    })
+    return new Promise((resolve, reject) => { 
+      this.responses[id] = {resolve,reject}
+    })
+  }
+  close () {
+    this.proc.kill(0)
   }
 }
+
+ function invokeUnref (arg) {
+    const obj = /** @type {Unrefable | null | { unref: unknown }} */ (arg)
+    if (obj && obj.unref && typeof obj.unref === 'function') {
+      obj.unref()
+    }
+  }
+
 
 /**
  * @param {unknown} v
