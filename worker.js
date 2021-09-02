@@ -92,10 +92,9 @@ class LambdaWorker {
   /**
    * @param {string} id
    * @param {Record<string, unknown>} eventObject
-   * @param {LambdaFunction} fn
    * @returns {void}
    */
-  invokeLambda (id, eventObject, fn) {
+  invokeLambda (id, eventObject) {
     /**
      * @raynos TODO: We have to populate the lambda eventObject
      * here and we have not done so at all.
