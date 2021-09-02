@@ -4,7 +4,7 @@
   "description": "This is a testing utility for testing your lambda functions.",
   "main": "build/src/index.js",
   "scripts": {
-    "lint": "true #npr standard",
+    "lint": "npr standard",
     "test": "npm run lint && node test/index.js"
   },
   "binDependencies": {

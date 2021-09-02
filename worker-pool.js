@@ -1,11 +1,8 @@
 'use strict'
 
-const path = require('path')
-const ChildProcessWorker = require('./child-process-worker')
 const DockerLambda = require('./docker')
-const { WaitGroup } = require('./sync-wait-group')
 const matchRoute = require('./match')
-const {URL} = require('url')
+const { URL } = require('url')
 /**
 
   @typedef {{
@@ -55,18 +52,18 @@ class WorkerPool {
    * @returns {void}
    */
   register (gatewayId, routes, env, silent, handler) {
-//    this.handlers.push(handler)
+    //    this.handlers.push(handler)
     this.routes = this.routes || {}
-    for(var route in routes) {
-   /*   this.knownGatewayInfos.push({
+    for (const route in routes) {
+      /*   this.knownGatewayInfos.push({
         id: gatewayId,
         route,
         env,
         silent
-      })*/
-//      console.log("HANDLER", handler)
-      const newWorker = this.routes[route] =
-//        new ChildProcessWorker(route, routes[route], env, handler, 'nodejs:12')
+      }) */
+      //      console.log("HANDLER", handler)
+      this.routes[route] =
+        //        new ChildProcessWorker(route, routes[route], env, handler, 'nodejs:12')
         new DockerLambda(route, routes[route], env, handler, 'nodejs:12')
     }
   }
@@ -86,13 +83,13 @@ class WorkerPool {
     _silent,
     handler
   ) {
-    for (var key in routes) {
+    for (const key in routes) {
       this.routes[key].close(0)
     }
-    //why is handlers an array?
-    //It must be related to there being one global worker pool.
-    //so much easier to have the gateway own the wp, so now there
-    //should only be one handler...
+    // why is handlers an array?
+    // It must be related to there being one global worker pool.
+    // so much easier to have the gateway own the wp, so now there
+    // should only be one handler...
     this.handlers.splice(this.handlers.indexOf(handler), 1)
   }
 
@@ -104,23 +101,22 @@ class WorkerPool {
   async dispatch (id, eventObject) {
     const url = new URL(eventObject.path, 'http://localhost:80')
 
-    var matched = matchRoute(this.routes, url.pathname)
+    const matched = matchRoute(this.routes, url.pathname)
 
-    if(matched)
-      return this.routes[matched].request(id, eventObject)
-    else
+    if (matched) { return this.routes[matched].request(id, eventObject) } else {
       return new Promise((resolve) => {
         resolve({
-            isBase64Encoded: false,
-            statusCode: 403, //the real api-gateway does a 403.
-            headers: {},
-            body: JSON.stringify({message: "Forbidden"}),
-            multiValueHeaders: {}
-          })
+          isBase64Encoded: false,
+          statusCode: 403, // the real api-gateway does a 403.
+          headers: {},
+          body: JSON.stringify({ message: 'Forbidden' }),
+          multiValueHeaders: {}
+        })
       })
-      //before, the error didn't happen until it got to the worker,
-      //but now the worker only has one lambda so it's here now.
-      /*
+    }
+    // before, the error didn't happen until it got to the worker,
+    // but now the worker only has one lambda so it's here now.
+    /*
       for (const h of this.handlers) {
         if (h.hasPendingRequest(id)) {
           h.handleLambdaResult(id, {
@@ -132,7 +128,7 @@ class WorkerPool {
           })
           break
         }
-      }*/
+      } */
   }
 
   /**
@@ -157,7 +153,7 @@ class WorkerPool {
    * @returns {void}
    */
   handleMessage (msg, info) {
-    
+
   }
 }
 

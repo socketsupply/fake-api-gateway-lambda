@@ -7,7 +7,6 @@ const util = require('util')
 const url = require('url')
 const WorkerPool = require('./worker-pool')
 
-
 /**
     @typedef {{
         resource: string;
@@ -84,7 +83,6 @@ class FakeApiGatewayLambda {
      *    id: string
      * }>}
      */
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.pendingRequests = new Map()
     /** @type {string} */
     this.gatewayId = cuuid()
@@ -92,7 +90,7 @@ class FakeApiGatewayLambda {
     this.populateRequestContext = options.populateRequestContext || null
 
     /** @type {WorkerPool} */
-    this.workerPool = new WorkerPool() //FakeApiGatewayLambda.WORKER_POOL
+    this.workerPool = new WorkerPool() // FakeApiGatewayLambda.WORKER_POOL
   }
 
   /**
@@ -304,7 +302,6 @@ class FakeApiGatewayLambda {
       const id = cuuid()
       this.pendingRequests.set(id, { req, res, id })
 
-      
       if (this.populateRequestContext) {
         const reqContext = this.populateRequestContext(eventObject)
         if ('then' in reqContext && typeof reqContext.then === 'function') {
@@ -325,13 +322,13 @@ class FakeApiGatewayLambda {
         } else {
           eventObject.requestContext = reqContext
           this.dispatch(id, eventObject).then((obj) => {
-              this.handleLambdaResult(id, obj)
-            })
+            this.handleLambdaResult(id, obj)
+          })
         }
       } else {
         this.dispatch(id, eventObject).then((obj) => {
-              this.handleLambdaResult(id, obj)
-            })
+          this.handleLambdaResult(id, obj)
+        })
       }
     })
   }
@@ -345,9 +342,8 @@ class FakeApiGatewayLambda {
     return this.workerPool.dispatch(id, eventObject)
   }
 }
-//FakeApiGatewayLambda.WORKER_POOL = new WorkerPool()
+// FakeApiGatewayLambda.WORKER_POOL = new WorkerPool()
 exports.FakeApiGatewayLambda = FakeApiGatewayLambda
-
 
 /**
  * @param {Record<string, string | string[]>} qs
@@ -421,7 +417,6 @@ function flattenHeaders (h) {
     }
   }
   for (const key of deleteList) {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     delete out[key]
   }
   return out

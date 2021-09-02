@@ -11,7 +11,7 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "strict": true,
+    "strict": false,
     "maxNodeModuleJsDepth": 0
   }
 }

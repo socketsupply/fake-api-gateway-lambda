@@ -1,13 +1,10 @@
 
-
 /**
  * @param {object} routes
  * @param {string} pathname
  * @returns {string|null}
  */
 function match (routes, pathname) {
-
-
   // what if a path has more than one pattern element?
   for (const route in routes) {
     const isPattern = route.endsWith('+}')
@@ -27,7 +24,6 @@ function match (routes, pathname) {
         return route
       }
     }
-
   }
   return null
 }

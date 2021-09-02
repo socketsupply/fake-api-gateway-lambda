@@ -12,14 +12,6 @@
  * https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
  */
 
-/** @type {{ cache: Record<string, { children: object[] }> }} */
-const globalRequire = require
-const globalStdoutWrite = process.stdout.write
-const globalStderrWrite = process.stderr.write
-const matchRoute = require('./match')
-
-const URL = require('url').URL
-
 /**
     @typedef {{
         route: string;
@@ -46,11 +38,11 @@ const URL = require('url').URL
 class LambdaWorker {
   constructor (entry, env, handler) {
     /** @type {GatewayInfo[]} */
-//    this.knownGatewayInfos = []
+    //    this.knownGatewayInfos = []
     /** @type {Record<string, string>} */
   //  this.routes = {}
     /** @type {Record<string, LambdaFunction | undefined>} */
-    //this.lambdaFunctions = {}
+    // this.lambdaFunctions = {}
 
     /** @type {Record<string, string | undefined>} */
     this.globalEnv = { ...env }
@@ -72,7 +64,7 @@ class LambdaWorker {
 
     const objMsg = msg
     const messageType = objMsg.message
-    /*if (messageType === 'start') {
+    /* if (messageType === 'start') {
     } else */
     if (messageType === 'event') {
       const id = objMsg.id
@@ -153,7 +145,7 @@ class LambdaWorker {
       isBase64Encoded: false,
       statusCode: 500,
       headers: {},
-      body: 'fake-api-gateway-lambda: ' + (err && err.message || err),
+      body: 'fake-api-gateway-lambda: ' + (err && (err.message || err)),
       multiValueHeaders: {}
     })
   }
@@ -183,24 +175,6 @@ class LambdaWorker {
   }
 }
 
-/**
- * @param {unknown} v
- * @returns {v is Record<string, string>}
- */
-function isStringDictionary (v) {
-  if (typeof v !== 'object' || !v) {
-    return false
-  }
-
-  const vObj = /** @type {Record<string, unknown>} */ (v)
-  for (const key of Object.keys(vObj)) {
-    if (typeof vObj[key] !== 'string') {
-      return false
-    }
-  }
-  return true
-}
-
 function main () {
   const worker = new LambdaWorker(process.argv[2], process.env, process.argv[3] || 'handler')
   process.on('message', (
@@ -225,21 +199,12 @@ function bail (msg) {
   )
 }
 
-/**
- * @param {Buffer | string | Uint8Array} _buf
- * @returns {boolean}
- */
-function noop (_buf) {
-  return false
-}
-
-if(require.main) main()
+if (require.main) main()
 
 /**
  * @param {string} fileName
  * @returns {LambdaFunction}
  */
 function dynamicLambdaRequire (fileName) {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   return /** @type {LambdaFunction} */ (require(fileName))
 }

@@ -1,9 +1,9 @@
 const path = require('path')
 const FakeApiGatewayLambda =
   require('../').FakeApiGatewayLambda
-//const fetch = require('node-fetch')
+// const fetch = require('node-fetch')
 
-async function test() {
+async function test () {
   const gateway = new FakeApiGatewayLambda({
     port: 8081,
     env: {
@@ -14,18 +14,18 @@ async function test() {
     routes: {
       '/hello': path.join(
         __dirname, 'hello.js'
-      ),
+      )
     }
   })
 
   await gateway.bootstrap()
   console.log('gataway running...')
-  //const resp = await fetch(`http://${gateway.hostPort}/hello`)
+  // const resp = await fetch(`http://${gateway.hostPort}/hello`)
 
   // Payload of the hello-world lambda response.
-  //const body = await resp.json()
+  // const body = await resp.json()
 
-  //await gateway.close()
+  // await gateway.close()
 }
 
 test()

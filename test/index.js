@@ -1,8 +1,8 @@
 'use strict'
 
-//var log = require('why-is-node-running')
+// var log = require('why-is-node-running')
 
-//setInterval(log, 1000).unref()
+// setInterval(log, 1000).unref()
 
 const { test } = require('./test-harness')
 
@@ -78,7 +78,7 @@ test('calling /hello many times', async (harness, assert) => {
 test('calling /hello many times in parallel',
   async (harness, assert) => {
     return
-    // @type {Promise<import('node-fetch').Response>[]} 
+    // @type {Promise<import('node-fetch').Response>[]}
     const tasks = []
     for (let i = 0; i < 5; i++) {
       tasks.push(harness.fetch('/hello'))
@@ -140,5 +140,5 @@ test('calling not found endpoint', async (harness, assert) => {
 
   const b = await res.text()
   assert.equal(b, '{"message":"Forbidden"}')
-  console.log("ALL FINISHED")
+  console.log('ALL FINISHED')
 })
