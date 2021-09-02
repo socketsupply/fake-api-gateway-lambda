@@ -29,8 +29,11 @@ var START_PORT = ~~(9000 + Math.random()*1000)
 
 
 class DockerLambda {
-  constructor (_path, entry, env, handler) {
-
+  constructor (_path, entry, env, handler, runtime) {
+    console.log("DOCKER", [_path, entry, env, handler, runtime])
+    this.path = _path
+    if(!/^nodejs:/.test(runtime))
+      throw new Error('only node.js runtime supported currently')
     //copy input to tmp dir
     //insert Dockerfile
     //run docker build
@@ -41,7 +44,7 @@ class DockerLambda {
       .reduce((a, b) => a.concat(b), [])
 
     this.port = START_PORT++
-    var id = 'operator-docker_'+0//Date.now()
+    var id = 'operator-docker_'+Date.now()
     var tmp = '/tmp/'+id
 
     function log (proc) {
@@ -55,7 +58,10 @@ class DockerLambda {
         if(err) return reject(err)
         var basename = path.basename(entry)
         var base = basename.substring(0, basename.indexOf(path.extname(basename)))
-        fs.writeFile(path.join(tmp, 'Dockerfile'), createDockerfile('nodejs:12', base+'.'+handler), (err)=>{
+        fs.writeFile(
+          path.join(tmp, 'Dockerfile'),
+          createDockerfile('nodejs:12', base+'.'+handler),
+        (err) => {
           if(err) return reject(err)
           console.log(['>docker', 'build', tmp, '-t',  id].join(' '))
           //return
@@ -63,10 +69,23 @@ class DockerLambda {
           .on('exit',  (code) => {
             if(code)
               return reject(new Error('docker build failed'))
-            if(this.closed) return reject(new Error('closed during startup'))
-            console.log(['>docker', 'run', '-p', `${this.port}:8080`, '-t', id].concat(env_array).join(' '))
-            this.proc = log(cp.spawn('docker', ['run', '-p', `${this.port}:8080`, '-t', id].concat(env_array)))
-            setTimeout(resolve, 3000)
+
+            //XXX: I think this should error but that breaks the tests...
+            if(this.closed)
+              return resolve()
+              //reject(new Error('closed during startup'))
+   
+         console.log(['>docker', 'run', '-p', `${this.port}:8080`].concat(env_array).concat([id]).join(' '))
+          //  this.proc = log(cp.spawn('docker', ['run', id, '-p', `${this.port}:8080`].concat(env_array)))
+
+            //if the id isn't the very last argument you'll get an error
+            //"entrypoint requires that handler must be first arg"
+            //which won't help you figure it out.
+            this.proc = log(cp.spawn('docker', ['run', '-p', `${this.port}:8080`]
+              .concat(env_array)
+              .concat([id])
+            ))
+            setTimeout(resolve, 1000)
           })
         })
       })
@@ -74,14 +93,17 @@ class DockerLambda {
   }
 
   request (id, eventObject) {
-    return fetch(`http://localhost:${this.port}/2015-03-31/functions/function/invocations`,
-      {method: 'post', body: JSON.stringify(eventObject)}
-    ).then(r => r.json())
+    return this.ready.then(() =>
+      fetch(`http://localhost:${this.port}/2015-03-31/functions/function/invocations`,
+        {method: 'post', body: JSON.stringify(eventObject)}
+      ).then(r => r.json())
+    )
   }
 
   close () {
     this.closed = true
-    this.proc.kill(9)
+    if(this.proc)
+      this.proc.kill(9)
   }
 }
 

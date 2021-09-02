@@ -2,6 +2,7 @@
 
 const path = require('path')
 const ChildProcessWorker = require('./child-process-worker')
+const DockerLambda = require('./docker')
 const { WaitGroup } = require('./sync-wait-group')
 const matchRoute = require('./match')
 const {URL} = require('url')
@@ -54,7 +55,7 @@ class WorkerPool {
    * @returns {void}
    */
   register (gatewayId, routes, env, silent, handler) {
-    this.handlers.push(handler)
+//    this.handlers.push(handler)
     this.routes = this.routes || {}
     for(var route in routes) {
    /*   this.knownGatewayInfos.push({
@@ -63,8 +64,10 @@ class WorkerPool {
         env,
         silent
       })*/
+//      console.log("HANDLER", handler)
       const newWorker = this.routes[route] =
-        new ChildProcessWorker(route, routes[route], env, handler)
+//        new ChildProcessWorker(route, routes[route], env, handler, 'nodejs:12')
+        new DockerLambda(route, routes[route], env, handler, 'nodejs:12')
     }
   }
 

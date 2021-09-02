@@ -4,7 +4,9 @@ const childProcess = require('child_process')
 const WORKER_PATH = path.join(__dirname, 'worker.js')
 
 class ChildProcessWorker {
-  constructor (path, entry, env, handler) {
+  constructor (path, entry, env, handler, runtime) {
+    if(!/^nodejs:/.test(runtime))
+      throw new Error('only node.js runtime supported currently')
     this.responses = {}
     this.path = path
     const proc = this.proc = childProcess.spawn(

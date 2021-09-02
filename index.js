@@ -142,7 +142,7 @@ class FakeApiGatewayLambda {
       this.routes,
       this.env,
       this.silent,
-      this
+      'handler'
     )
 
     const addr = this.httpServer.address()
