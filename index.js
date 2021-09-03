@@ -44,12 +44,13 @@ const WorkerPool = require('./worker-pool')
         body: string;
     }} LambdaResult
 */
-
+var COUNT = 0
 class FakeApiGatewayLambda {
   /**
    * @param {Options} options
    */
   constructor (options) {
+    console.log("START", ++COUNT)
     /** @type {http.Server | null} */
     this.httpServer = http.createServer()
 
@@ -156,41 +157,16 @@ class FakeApiGatewayLambda {
    * @returns {Promise<void>}
    */
   async close () {
-    if (this.httpServer === null) {
-      return
+
+    const close = (server) => {
+      return server && util.promisify((cb) => { server.close(() => { cb(null, null) })})()
     }
 
-    const server = this.httpServer
-    await util.promisify((cb) => {
-      server.close(() => {
-        cb(null, null)
-      })
-    })()
+    await Promise.all([
+      close(this.httpServer), close(this.httpsServer), this.workerPool.close()
+    ])
 
-    if (this.httpsServer) {
-      const httpsServer = this.httpServer
-      await util.promisify((cb) => {
-        httpsServer.close(() => {
-          cb(null, null)
-        })
-      })()
-
-      this.httpsServer = null
-    }
-
-    /**
-     * Here we want to tell the WORKER_POOL to stop routing
-     * these URLs to the lambdas.
-     */
-    this.workerPool.deregister(
-      this.gatewayId,
-      this.routes,
-      this.env,
-      this.silent,
-      this
-    )
-
-    this.httpServer = null
+    this.httpServer = this.httpsServer = null
   }
 
   /**
