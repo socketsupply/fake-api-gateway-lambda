@@ -74,7 +74,6 @@ test('calling /hello many times', async (harness, assert) => {
 //  assert.equal(harness.lambda.workerPool.workers.length, 1)
 })
 
-/*
 test('calling /hello many times in parallel',
   async (harness, assert) => {
     return
@@ -94,7 +93,6 @@ test('calling /hello many times in parallel',
 
   }
 )
-*/
 
 test('calling /hello with different args', async (harness, assert) => {
   const res1 = await harness.fetch('/hello', {
@@ -140,5 +138,4 @@ test('calling not found endpoint', async (harness, assert) => {
 
   const b = await res.text()
   assert.equal(b, '{"message":"Forbidden"}')
-  console.log('ALL FINISHED')
 })
