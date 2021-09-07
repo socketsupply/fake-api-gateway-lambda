@@ -1,6 +1,6 @@
+var main = module.exports = function () {
 // @ts-check
-'use strict'
-
+'use strict' 
 /**
  * This is the worker child process that imports the lambda
  * user code.
@@ -174,7 +174,7 @@ class LambdaWorker {
   }
 }
 
-function main () {
+function start () {
   const worker = new LambdaWorker(process.argv[2], process.env, process.argv[3] || 'handler')
   process.on('message', (
     /** @type {Record<string, unknown>} */ msg
@@ -198,7 +198,6 @@ function bail (msg) {
   )
 }
 
-if (require.main) main()
 
 /**
  * @param {string} fileName
@@ -207,3 +206,7 @@ if (require.main) main()
 function dynamicLambdaRequire (fileName) {
   return /** @type {LambdaFunction} */ (require(fileName))
 }
+  start()
+}
+
+if (module === require.main) main()

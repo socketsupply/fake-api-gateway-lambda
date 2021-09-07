@@ -1,13 +1,17 @@
 const path = require('path')
 const childProcess = require('child_process')
 
-const WORKER_PATH = path.join(__dirname, 'worker.js')
+var WORKER_PATH = '/tmp/worker.js' //path.join(__dirname, 'worker.js')
+
+const WorkerMain = require('./worker')
+require('fs').writeFileSync('/tmp/worker.js', ';('+WorkerMain.toString()+')();function __name (){}; ')
 
 class ChildProcessWorker {
   constructor (path, entry, env, handler, runtime) {
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     this.responses = {}
     this.path = path
+
     const proc = this.proc = childProcess.spawn(
       process.execPath,
       [WORKER_PATH, entry, handler],
