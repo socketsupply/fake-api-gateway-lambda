@@ -1,6 +1,7 @@
 'use strict'
 
 const DockerLambda = require('./docker')
+const ChildProcessWorker = require('./child-process-worker')
 const matchRoute = require('./match')
 const { URL } = require('url')
 /**
@@ -63,8 +64,8 @@ class WorkerPool {
       }) */
       //      console.log("HANDLER", handler)
       this.routes[route] =
-        //        new ChildProcessWorker(route, routes[route], env, handler, 'nodejs:12')
-        new DockerLambda(route, routes[route], env, handler, 'nodejs:12')
+                new ChildProcessWorker(route, routes[route], env, handler, 'nodejs:12')
+        //new DockerLambda(route, routes[route], env, handler, 'nodejs:12')
     }
   }
 
@@ -154,6 +155,9 @@ class WorkerPool {
    */
   handleMessage (msg, info) {
 
+  }
+  async close () {
+    return Promise.all(Object.keys(this.routes).map(async (k) => this.routes[k].close()))
   }
 }
 
