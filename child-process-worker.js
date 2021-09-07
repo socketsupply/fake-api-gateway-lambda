@@ -7,7 +7,7 @@ const WorkerMain = require('./worker')
 require('fs').writeFileSync('/tmp/worker.js', ';('+WorkerMain.toString()+')();function __name (){}; ')
 
 class ChildProcessWorker {
-  constructor (path, entry, env, handler, runtime) {
+  constructor ({path, entry, env, handler, runtime}) {
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     this.responses = {}
     this.path = path
@@ -31,9 +31,12 @@ class ChildProcessWorker {
     proc.unref()
     invokeUnref(proc.channel)
 
+//    fs.createWriteStream(
+
     if (proc.stdout) {
       invokeUnref(proc.stdout)
       proc.stdout.pipe(process.stdout)
+      
     }
     if (proc.stderr) {
       invokeUnref(proc.stderr)

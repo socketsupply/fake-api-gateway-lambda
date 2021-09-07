@@ -1,7 +1,7 @@
 'use strict'
 
 const util = require('util')
-const path = require('path')
+const _path = require('path')
 const events = require('events')
 const fs = require('fs')
 const cp = require('child_process')
@@ -47,9 +47,9 @@ function log (proc) {
 }
 
 class DockerLambda {
-  constructor (_path, entry, env, handler, runtime) {
+  constructor ({path, entry, env, handler, runtime}) {
     console.log('DOCKER', [_path, entry, env, handler, runtime])
-    this.path = _path
+    this.path = path
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     // copy input to tmp dir
     // insert Dockerfile
@@ -72,11 +72,11 @@ class DockerLambda {
 
     const id = 'operator-docker_' + Date.now()
     const tmp = '/tmp/' + id
-    await copy(path.dirname(this.entry), tmp)
-    const basename = path.basename(this.entry)
-    const base = basename.substring(0, basename.indexOf(path.extname(basename)))
+    await copy(_path.dirname(this.entry), tmp)
+    const basename = _path.basename(this.entry)
+    const base = basename.substring(0, basename.indexOf(_path.extname(basename)))
     await fs.promises.writeFile(
-      path.join(tmp, 'Dockerfile'),
+      _path.join(tmp, 'Dockerfile'),
       createDockerfile('nodejs:12', base + '.' + this.handler))
         
     console.log(['>docker', 'build', tmp, '-t', id].join(' '))

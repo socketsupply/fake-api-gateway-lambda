@@ -56,7 +56,7 @@ class WorkerPool {
     //    this.handlers.push(handler)
 
     this.functions = functions.map(fun => ({...fun, worker: 
-      new ChildProcessWorker(fun.path, fun.entry, env, handler, 'nodejs:12')
+      new ChildProcessWorker({path: fun.path, entry: fun.entry, env, handler, runtime:'nodejs:12'})
     }))
   }
 
