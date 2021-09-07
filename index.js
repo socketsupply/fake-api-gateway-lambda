@@ -44,13 +44,11 @@ const WorkerPool = require('./worker-pool')
         body: string;
     }} LambdaResult
 */
-var COUNT = 0
 class FakeApiGatewayLambda {
   /**
    * @param {Options} options
    */
   constructor (options) {
-    console.log("START", ++COUNT)
     /** @type {http.Server | null} */
     this.httpServer = http.createServer()
 
