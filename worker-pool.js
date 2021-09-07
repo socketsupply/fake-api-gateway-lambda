@@ -52,21 +52,12 @@ class WorkerPool {
    * @param {WorkerPoolHandler} handler
    * @returns {void}
    */
-  register (gatewayId, routes, env, silent, handler) {
+  register (gatewayId, functions, env, silent, handler) {
     //    this.handlers.push(handler)
-    this.routes = this.routes || {}
-    for (const route in routes) {
-      /*   this.knownGatewayInfos.push({
-        id: gatewayId,
-        route,
-        env,
-        silent
-      }) */
-      //      console.log("HANDLER", handler)
-      this.routes[route] =
-                new ChildProcessWorker(route, routes[route], env, handler, 'nodejs:12')
-        //new DockerLambda(route, routes[route], env, handler, 'nodejs:12')
-    }
+
+    this.functions = functions.map(fun => ({...fun, worker: 
+      new ChildProcessWorker(fun.path, fun.entry, env, handler, 'nodejs:12')
+    }))
   }
 
   /**
@@ -84,9 +75,7 @@ class WorkerPool {
     _silent,
     handler
   ) {
-    for (const key in routes) {
-      this.routes[key].close(0)
-    }
+    this.functions.forEach(fun => fun.worker.close())
     // why is handlers an array?
     // It must be related to there being one global worker pool.
     // so much easier to have the gateway own the wp, so now there
@@ -102,9 +91,11 @@ class WorkerPool {
   async dispatch (id, eventObject) {
     const url = new URL(eventObject.path, 'http://localhost:80')
 
-    const matched = matchRoute(this.routes, url.pathname)
+    const matched = matchRoute(this.functions, url.pathname)
 
-    if (matched) { return this.routes[matched].request(id, eventObject) } else {
+    if (matched)
+      return matched.worker.request(id, eventObject)
+    else {
       return new Promise((resolve) => {
         resolve({
           isBase64Encoded: false,
@@ -157,7 +148,7 @@ class WorkerPool {
 
   }
   async close () {
-    return Promise.all(Object.keys(this.routes).map(async (k) => this.routes[k].close()))
+    return Promise.all(this.functions.map(async (fun) => fun.worker.close()))
   }
 }
 

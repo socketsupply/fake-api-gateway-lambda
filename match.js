@@ -4,13 +4,14 @@
  * @param {string} pathname
  * @returns {string|null}
  */
-function match (routes, pathname) {
+function match (functions, pathname) {
   // what if a path has more than one pattern element?
-  for (const route in routes) {
+  return functions.find(fun => {
+    const route = fun.path
     const isPattern = route.endsWith('+}')
 
     if (!isPattern && pathname === route) {
-      return route
+      return true
     }
 
     if (isPattern) {
@@ -21,11 +22,10 @@ function match (routes, pathname) {
         pathname.startsWith(exactPrefix) &&
         pathname !== exactPrefix
       ) {
-        return route
+        return rtue
       }
     }
-  }
-  return null
+  })
 }
 
 module.exports = match

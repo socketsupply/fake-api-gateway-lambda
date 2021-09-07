@@ -66,7 +66,15 @@ class FakeApiGatewayLambda {
     /** @type {number} */
     this.port = options.port || 0
     /** @type {Record<string, string>} */
-    this.routes = { ...options.routes }
+    if(options.routes) {
+      this.functions = Object.entries(options.routes).map(([key, value]) => ({
+        path: key,
+        entry: value
+      }))
+    }
+    else
+      this.functions = [...options.functions]
+        
     /** @type {Record<string, string>} */
     this.env = options.env || {}
     /** @type {boolean} */
@@ -136,7 +144,7 @@ class FakeApiGatewayLambda {
      */
     this.workerPool.register(
       this.gatewayId,
-      this.routes,
+      this.functions,
       this.env,
       this.silent,
       'handler'
