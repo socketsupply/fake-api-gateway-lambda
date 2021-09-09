@@ -1,5 +1,6 @@
 const path = require('path')
 const childProcess = require('child_process')
+const util = require('./util')
 
 var WORKER_PATH = '/tmp/worker.js' //path.join(__dirname, 'worker.js')
 
@@ -7,7 +8,7 @@ const WorkerMain = require('./worker')
 require('fs').writeFileSync('/tmp/worker.js', ';('+WorkerMain.toString()+')();function __name (){}; ')
 
 class ChildProcessWorker {
-  constructor ({path, entry, env, handler, runtime}) {
+  constructor ({path, entry, env, handler, runtime = 'nodejs:12', stdout, stderr}) {
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     this.responses = {}
     this.path = path
@@ -28,20 +29,9 @@ class ChildProcessWorker {
      * we are pooling these child processes globally between
      * many instances of the FakeApiGatewayLambda instances.
      */
-    proc.unref()
-    invokeUnref(proc.channel)
-
-//    fs.createWriteStream(
-
-    if (proc.stdout) {
-      invokeUnref(proc.stdout)
-      proc.stdout.pipe(process.stdout)
-      
-    }
-    if (proc.stderr) {
-      invokeUnref(proc.stderr)
-      proc.stderr.pipe(process.stderr)
-    }
+    util.invokeUnref(proc)
+    util.invokeUnref(proc.channel)
+    util.pipeStdio(proc, {stdout, stderr})
     proc.on('message', (
       /** @type {Record<string, unknown>} */ msg
     ) => {
@@ -95,13 +85,6 @@ class ChildProcessWorker {
 
   close () {
     this.proc.kill(0)
-  }
-}
-
-function invokeUnref (arg) {
-  const obj = /** @type {Unrefable | null | { unref: unknown }} */ (arg)
-  if (obj && obj.unref && typeof obj.unref === 'function') {
-    obj.unref()
   }
 }
 

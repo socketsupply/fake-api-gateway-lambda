@@ -7,6 +7,7 @@ const fs = require('fs')
 const cp = require('child_process')
 const fetch = require('node-fetch').default
 const ncp = util.promisify(require('ncp'))
+const util = require('./util')
 // run lambda process within docker.
 
 
@@ -47,7 +48,7 @@ function log (proc) {
 }
 
 class DockerLambda {
-  constructor ({path, entry, env, handler, runtime}) {
+  constructor ({path, entry, env, handler, runtime, stderr, stdout}) {
     console.log('DOCKER', [_path, entry, env, handler, runtime])
     this.path = path
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
@@ -96,10 +97,13 @@ class DockerLambda {
     // if the id isn't the very last argument you'll get an error
     // "entrypoint requires that handler must be first arg"
     // which won't help you figure it out.
-    this.proc = log(cp.spawn('docker', ['run', '-p', `${this.port}:8080`]
+    var proc = this.proc = log(cp.spawn('docker', ['run', '-p', `${this.port}:8080`]
       .concat(envArray)
       .concat([id])
     ))
+
+    util.pipeStdio(proc, {stdout, stderr})
+
     await dockerLambdaReady(this.port)
   }
 

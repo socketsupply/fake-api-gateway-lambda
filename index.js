@@ -5,7 +5,10 @@ const http = require('http')
 const https = require('https')
 const util = require('util')
 const url = require('url')
-const WorkerPool = require('./worker-pool')
+const matchRoute = require('./match')
+//const WorkerPool = require('./worker-pool')
+
+const ChildProcessWorker = require('./child-process-worker')
 
 /**
     @typedef {{
@@ -67,6 +70,8 @@ class FakeApiGatewayLambda {
     this.port = options.port || 0
     /** @type {Record<string, string>} */
     //support old style... as used in the tests
+    /** @type {Record<string, string>} */
+    this.env = options.env || {}
     if(options.routes) {
       this.functions = Object.entries(options.routes).map(([key, value]) => ({
         path: key,
@@ -75,10 +80,8 @@ class FakeApiGatewayLambda {
     }
     else
       //pass in functiosn array to pass more parameters to each function.
-      this.functions = [...options.functions]
-        
-    /** @type {Record<string, string>} */
-    this.env = options.env || {}
+      this.functions = [...options.functions].map(f => ({...f}))
+
     /** @type {boolean} */
     this.enableCors = options.enableCors || false
     /** @type {boolean} */
@@ -99,7 +102,7 @@ class FakeApiGatewayLambda {
     this.populateRequestContext = options.populateRequestContext || null
 
     /** @type {WorkerPool} */
-    this.workerPool = new WorkerPool() // FakeApiGatewayLambda.WORKER_POOL
+    //this.workerPool = new WorkerPool() // FakeApiGatewayLambda.WORKER_POOL
   }
 
   /**
@@ -144,13 +147,14 @@ class FakeApiGatewayLambda {
      * We want to register that these routes should be handled
      * by the following lambdas to the WORKER_POOL.
      */
-    this.workerPool.register(
-      this.gatewayId,
-      this.functions,
-      this.env,
-      this.silent,
-      'handler'
-    )
+    this.functions.forEach(fun => {
+      fun.worker = new ChildProcessWorker({
+        env: this.env,
+        runtime: this.runtime,
+        stdout: this.stdout,
+        stderr: this.stderr,
+        ...fun})
+    })
 
     const addr = this.httpServer.address()
     if (!addr || typeof addr === 'string') {
@@ -164,6 +168,33 @@ class FakeApiGatewayLambda {
   /**
    * @returns {Promise<void>}
    */
+  /**
+   * @param {string} id
+   * @param {object} eventObject
+   * @returns {Promise<void>}
+   */
+  async dispatch (id, eventObject) {
+    const url = new URL(eventObject.path, 'http://localhost:80')
+
+    const matched = matchRoute(this.functions, url.pathname)
+
+    if (matched)
+      return matched.worker.request(id, eventObject)
+    else {
+      return new Promise((resolve) => {
+        resolve({
+          isBase64Encoded: false,
+          statusCode: 403, // the real api-gateway does a 403.
+          headers: {},
+          body: JSON.stringify({ message: 'Forbidden' }),
+          multiValueHeaders: {}
+        })
+      })
+    }
+    // before, the error didn't happen until it got to the worker,
+    // but now the worker only has one lambda so it's here now.
+  }
+
   async close () {
 
     const close = (server) => {
@@ -171,7 +202,9 @@ class FakeApiGatewayLambda {
     }
 
     await Promise.all([
-      close(this.httpServer), close(this.httpsServer), this.workerPool.close()
+      close(this.httpServer),
+      close(this.httpsServer),
+      Promise.all(this.functions.map(f => f.worker.close()))
     ])
 
     this.httpServer = this.httpsServer = null
@@ -322,11 +355,8 @@ class FakeApiGatewayLambda {
    * @param {object} eventObject
    * @returns {void}
    */
-  dispatch (id, eventObject) {
-    return this.workerPool.dispatch(id, eventObject)
-  }
 }
-// FakeApiGatewayLambda.WORKER_POOL = new WorkerPool()
+
 exports.FakeApiGatewayLambda = FakeApiGatewayLambda
 
 /**
