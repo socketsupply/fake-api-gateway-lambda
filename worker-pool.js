@@ -61,29 +61,6 @@ class WorkerPool {
   }
 
   /**
-   * @param {string} gatewayId
-   * @param {Record<string, string>} routes
-   * @param {Record<string, string>} _env
-   * @param {boolean} _silent
-   * @param {WorkerPoolHandler} handler
-   * @returns {void}
-   */
-  deregister (
-    gatewayId,
-    routes,
-    _env,
-    _silent,
-    handler
-  ) {
-    this.functions.forEach(fun => fun.worker.close())
-    // why is handlers an array?
-    // It must be related to there being one global worker pool.
-    // so much easier to have the gateway own the wp, so now there
-    // should only be one handler...
-    this.handlers.splice(this.handlers.indexOf(handler), 1)
-  }
-
-  /**
    * @param {string} id
    * @param {object} eventObject
    * @returns {Promise<void>}
@@ -108,45 +85,8 @@ class WorkerPool {
     }
     // before, the error didn't happen until it got to the worker,
     // but now the worker only has one lambda so it's here now.
-    /*
-      for (const h of this.handlers) {
-        if (h.hasPendingRequest(id)) {
-          h.handleLambdaResult(id, {
-            isBase64Encoded: false,
-            statusCode: 403, //the real api-gateway does a 403.
-            headers: {},
-            body: JSON.stringify({message: "Forbidden"}),
-            multiValueHeaders: {}
-          })
-          break
-        }
-      } */
   }
 
-  /**
-   * Helper method to cast & invoke unref if it exists
-   *
-   * @param {unknown} arg
-   * @returns {void}
-   */
-
-  /**
-   * @returns {{
-   *    proc: childProcess.ChildProcess,
-   *    handlingRequest: boolean
-   * }}
-   */
-  spawnWorker (entry, env, handler) {
-  }
-
-  /**
-   * @param {Record<string, unknown>} msg
-   * @param {WorkerInfo} info
-   * @returns {void}
-   */
-  handleMessage (msg, info) {
-
-  }
   async close () {
     return Promise.all(this.functions.map(async (fun) => fun.worker.close()))
   }
