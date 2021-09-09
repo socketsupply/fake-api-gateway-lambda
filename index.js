@@ -66,6 +66,7 @@ class FakeApiGatewayLambda {
     /** @type {number} */
     this.port = options.port || 0
     /** @type {Record<string, string>} */
+    //support old style... as used in the tests
     if(options.routes) {
       this.functions = Object.entries(options.routes).map(([key, value]) => ({
         path: key,
@@ -73,6 +74,7 @@ class FakeApiGatewayLambda {
       }))
     }
     else
+      //pass in functiosn array to pass more parameters to each function.
       this.functions = [...options.functions]
         
     /** @type {Record<string, string>} */
