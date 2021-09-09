@@ -1,8 +1,8 @@
 'use strict'
 
-// var log = require('why-is-node-running')
+ var log = require('why-is-node-running')
 
-// setInterval(log, 1000).unref()
+ setInterval(log, 1000).unref()
 
 const { test } = require('./test-harness')
 
