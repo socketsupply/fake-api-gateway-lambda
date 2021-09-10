@@ -154,7 +154,7 @@ class FakeApiGatewayLambda {
         runtime: this.runtime,
         stdout: this.stdout,
         stderr: this.stderr,
-        tmp, this.tmp,
+        tmp: this.tmp,
         ...fun})
     })
 
