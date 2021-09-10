@@ -54,6 +54,7 @@ class FakeApiGatewayLambda {
   constructor (options) {
     /** @type {http.Server | null} */
     this.httpServer = http.createServer()
+    this.tmp = options.tmp
 
     /** @type {https.Server | null} */
     this.httpsServer = null
@@ -153,6 +154,7 @@ class FakeApiGatewayLambda {
         runtime: this.runtime,
         stdout: this.stdout,
         stderr: this.stderr,
+        tmp, this.tmp,
         ...fun})
     })
 

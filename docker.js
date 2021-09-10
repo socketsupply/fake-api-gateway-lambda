@@ -48,8 +48,7 @@ function log (proc) {
 }
 
 class DockerLambda {
-  constructor ({path, entry, env, handler, runtime, stderr, stdout}) {
-    console.log('DOCKER', [_path, entry, env, handler, runtime])
+  constructor ({path, entry, env, handler, runtime, stderr, stdout, id, tmp}) {
     this.path = path
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     // copy input to tmp dir
@@ -71,8 +70,10 @@ class DockerLambda {
       .map(k => ['--env', k + '=' + this.env[k]])
       .reduce((a, b) => a.concat(b), [])
 
-    const id = 'operator-docker_' + Date.now()
-    const tmp = '/tmp/' + id
+    //const id = 'operator-docker_' + Date.now()
+    //const tmp = '/tmp/' + id
+    id = id || ''+Date.now()
+    tmp = tmp || '/tmp/'+id
     await copy(_path.dirname(this.entry), tmp)
     const basename = _path.basename(this.entry)
     const base = basename.substring(0, basename.indexOf(_path.extname(basename)))
