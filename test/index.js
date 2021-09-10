@@ -1,8 +1,8 @@
 'use strict'
 
- var log = require('why-is-node-running')
+const log = require('why-is-node-running')
 
- setInterval(log, 1000).unref()
+setInterval(log, 1000).unref()
 
 const { test } = require('./test-harness')
 
@@ -76,7 +76,6 @@ test('calling /hello many times', async (harness, assert) => {
 
 test('calling /hello many times in parallel',
   async (harness, assert) => {
-    return
     // @type {Promise<import('node-fetch').Response>[]}
     const tasks = []
     for (let i = 0; i < 5; i++) {
@@ -90,7 +89,6 @@ test('calling /hello many times in parallel',
       const b = await res.text()
       assert.equal(b, 'Hello, World!')
     }
-
   }
 )
 
