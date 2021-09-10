@@ -49,7 +49,21 @@ function log (proc) {
 }
 
 class DockerLambda {
-  constructor ({ path, entry, env, handler, runtime, stderr, stdout, id, tmp }) {
+  constructor (args) {
+    const {
+      bin,
+      entry,
+      env,
+      handler,
+      id,
+      path,
+      runtime,
+      stderr,
+      stdout,
+      tmp
+    } = args
+
+    this.bin = bin || 'docker'
     this.path = path
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     // copy input to tmp dir
@@ -85,9 +99,9 @@ class DockerLambda {
       createDockerfile('nodejs:12', base + '.' + this.handler)
     )
 
-    console.log(['>docker', 'build', this.tmp, '-t', this.id].join(' '))
+    console.log([`>${this.bin}`, 'build', this.tmp, '-t', this.id].join(' '))
 
-    this.proc = log(cp.spawn('docker', ['build', this.tmp, '-t', this.id]))
+    this.proc = log(cp.spawn(this.bin, ['build', this.tmp, '-t', this.id]))
     const [code] = await events.once(this.proc, 'exit')
 
     if (code) { throw new Error('docker build failed') }
@@ -96,13 +110,13 @@ class DockerLambda {
     if (this.closed) return
     // throw new Error('closed during startup')
 
-    console.log(['>docker', 'run', '-it', '-p', `${this.port}:8080`].concat(envArray).concat([this.id]).join(' '))
+    console.log([`>${this.bin}`, 'run', '-it', '-p', `${this.port}:8080`].concat(envArray).concat([this.id]).join(' '))
     //  this.proc = log(cp.spawn('docker', ['run', id, '-p', `${this.port}:8080`].concat(envArray)))
 
     // if the id isn't the very last argument you'll get an error
     // "entrypoint requires that handler must be first arg"
     // which won't help you figure it out.
-    const proc = this.proc = log(cp.spawn('docker', ['run', '-p', `${this.port}:8080`]
+    const proc = this.proc = log(cp.spawn(this.bin, ['run', '-p', `${this.port}:8080`]
       .concat(envArray)
       .concat([this.id])
     ))
