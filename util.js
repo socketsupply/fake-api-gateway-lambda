@@ -6,15 +6,15 @@ function invokeUnref (arg) {
   return arg
 }
 
-function maybePipe(source, dest) {
-  if(source) {
+function maybePipe (source, dest) {
+  if (source) {
     invokeUnref(source)
-    source.pipe(dest, {end:false})
+    source.pipe(dest, { end: false })
   }
 }
 
 exports.pipeStdio = function (proc, stdio) {
-  maybePipe(proc.stdout, stdio.stdout || process.stdout)  
-  maybePipe(proc.stderr, stdio.stderr || process.stderr)  
+  maybePipe(proc.stdout, stdio.stdout || process.stdout)
+  maybePipe(proc.stderr, stdio.stderr || process.stderr)
 }
 exports.invokeUnref = invokeUnref

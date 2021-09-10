@@ -22,9 +22,10 @@ function match (functions, pathname) {
         pathname.startsWith(exactPrefix) &&
         pathname !== exactPrefix
       ) {
-        return rtue
+        return true
       }
     }
+    return false
   })
 }
 

@@ -1,7 +1,7 @@
-var main = module.exports = function () {
+const main = module.exports = function () {
 // @ts-check
-'use strict' 
-/**
+  'use strict'
+  /**
  * This is the worker child process that imports the lambda
  * user code.
  *
@@ -12,7 +12,7 @@ var main = module.exports = function () {
  * https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
  */
 
-/**
+  /**
     @typedef {{
         route: string;
         env: Record<string, string>;
@@ -35,72 +35,72 @@ var main = module.exports = function () {
     }} LambdaFunction
  */
 
-class LambdaWorker {
-  constructor (entry, env, handler) {
+  class LambdaWorker {
+    constructor (entry, env, handler) {
     /** @type {GatewayInfo[]} */
     //    this.knownGatewayInfos = []
     /** @type {Record<string, string>} */
-  //  this.routes = {}
+      //  this.routes = {}
     /** @type {Record<string, LambdaFunction | undefined>} */
     // this.lambdaFunctions = {}
 
-    /** @type {Record<string, string | undefined>} */
-    this.globalEnv = { ...env }
-    this.entry = entry
+      /** @type {Record<string, string | undefined>} */
+      this.globalEnv = { ...env }
+      this.entry = entry
 
-    this.lambdaFunction = dynamicLambdaRequire(entry)
-    this.handler = handler
-  }
+      this.lambdaFunction = dynamicLambdaRequire(entry)
+      this.handler = handler
+    }
 
-  /**
+    /**
    * @param {Record<string, unknown>} msg
    * @returns {void}
    */
-  handleMessage (msg) {
-    if (typeof msg !== 'object' || Object.is(msg, null)) {
-      bail('bad data type from parent process: handleMessage')
-      return
-    }
+    handleMessage (msg) {
+      if (typeof msg !== 'object' || Object.is(msg, null)) {
+        bail('bad data type from parent process: handleMessage')
+        return
+      }
 
-    const objMsg = msg
-    const messageType = objMsg.message
-    /* if (messageType === 'start') {
+      const objMsg = msg
+      const messageType = objMsg.message
+      /* if (messageType === 'start') {
     } else */
-    if (messageType === 'event') {
-      const id = objMsg.id
-      if (typeof id !== 'string') {
-        bail('missing id from parent process: event')
-        return
-      }
+      if (messageType === 'event') {
+        const id = objMsg.id
+        if (typeof id !== 'string') {
+          bail('missing id from parent process: event')
+          return
+        }
 
-      const eventObject = objMsg.eventObject
-      if (
-        typeof eventObject !== 'object' ||
+        const eventObject = objMsg.eventObject
+        if (
+          typeof eventObject !== 'object' ||
         eventObject === null
-      ) {
-        bail('missing eventObject from parent process: event')
-        return
+        ) {
+          bail('missing eventObject from parent process: event')
+          return
+        }
+
+        this.invokeLambda(id, eventObject)
+      } else {
+        console.log(msg)
+        bail('bad data type from parent process: unknown')
       }
-
-      this.invokeLambda(id, eventObject)
-    } else {
-      console.log(msg)
-      bail('bad data type from parent process: unknown')
     }
-  }
 
-  /**
+    /**
    * @param {string} id
    * @param {Record<string, unknown>} eventObject
    * @returns {void}
    */
-  invokeLambda (id, eventObject) {
+    invokeLambda (id, eventObject) {
     /**
      * @raynos TODO: We have to populate the lambda eventObject
      * here and we have not done so at all.
      */
 
-    /**
+      /**
      * @raynos TODO: We have to pretend to be lambda here.
      * We need to set a bunch of global environment variables.
      *
@@ -109,103 +109,102 @@ class LambdaWorker {
      * that we can borrow implementations from.
      */
 
-    const maybePromise = this.lambdaFunction.handler(eventObject, {}, (err, result) => {
-      if (!result) {
-        this.sendError(id, err)
-        return
-      }
+      const maybePromise = this.lambdaFunction.handler(eventObject, {}, (err, result) => {
+        if (!result) {
+          this.sendError(id, err)
+          return
+        }
 
-      this.sendResult(id, result)
-    })
-
-    if (maybePromise) {
-      maybePromise.then((result) => {
         this.sendResult(id, result)
-      }, (/** @type {Error} */ err) => {
-        this.sendError(id, err)
       })
-    }
-  }
 
-  /**
+      if (maybePromise) {
+        maybePromise.then((result) => {
+          this.sendResult(id, result)
+        }, (/** @type {Error} */ err) => {
+          this.sendError(id, err)
+        })
+      }
+    }
+
+    /**
    * @param {string} id
    * @param {Error} err
    * @returns {void}
    */
-  sendError (id, err) {
-    console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err)
+    sendError (id, err) {
+      console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err)
 
-    /**
+      /**
      * @raynos TODO: We should identify what AWS lambda does here
      * in co-ordination with AWS API Gateway and return that
      * instead.
      */
-    this.sendResult(id, {
-      isBase64Encoded: false,
-      statusCode: 500,
-      headers: {},
-      body: 'fake-api-gateway-lambda: ' + (err && (err.message || err)),
-      multiValueHeaders: {}
-    })
-  }
+      this.sendResult(id, {
+        isBase64Encoded: false,
+        statusCode: 500,
+        headers: {},
+        body: 'fake-api-gateway-lambda: ' + (err && (err.message || err)),
+        multiValueHeaders: {}
+      })
+    }
 
-  /**
+    /**
    * @param {string} id
    * @param {LambdaResult} result
    * @returns {void}
    */
-  sendResult (id, result) {
-    if (typeof process.send !== 'function') {
-      bail('cannot send to parent process')
-      return
-    }
-
-    process.send({
-      message: 'result',
-      id,
-      result: {
-        isBase64Encoded: result.isBase64Encoded || false,
-        statusCode: result.statusCode,
-        headers: result.headers || {},
-        body: result.body || '',
-        multiValueHeaders: result.multiValueHeaders
+    sendResult (id, result) {
+      if (typeof process.send !== 'function') {
+        bail('cannot send to parent process')
+        return
       }
+
+      process.send({
+        message: 'result',
+        id,
+        result: {
+          isBase64Encoded: result.isBase64Encoded || false,
+          statusCode: result.statusCode,
+          headers: result.headers || {},
+          body: result.body || '',
+          multiValueHeaders: result.multiValueHeaders
+        }
+      })
+    }
+  }
+
+  function start () {
+    const worker = new LambdaWorker(process.argv[2], process.env, process.argv[3] || 'handler')
+    process.on('message', (
+    /** @type {Record<string, unknown>} */ msg
+    ) => {
+      worker.handleMessage(msg)
     })
   }
-}
 
-function start () {
-  const worker = new LambdaWorker(process.argv[2], process.env, process.argv[3] || 'handler')
-  process.on('message', (
-    /** @type {Record<string, unknown>} */ msg
-  ) => {
-    worker.handleMessage(msg)
-  })
-}
-
-/**
+  /**
  * @param {string} msg
  * @returns {void}
  */
-function bail (msg) {
-  process.stderr.write(
-    'fake-api-gateway-lambda: ' +
+  function bail (msg) {
+    process.stderr.write(
+      'fake-api-gateway-lambda: ' +
         'The lambda process has to exit because: ' +
         msg + '\n',
-    () => {
-      process.exit(1)
-    }
-  )
-}
+      () => {
+        process.exit(1)
+      }
+    )
+  }
 
-
-/**
+  /**
  * @param {string} fileName
  * @returns {LambdaFunction}
  */
-function dynamicLambdaRequire (fileName) {
-  return /** @type {LambdaFunction} */ (require(fileName))
-}
+  function dynamicLambdaRequire (fileName) {
+    return /** @type {LambdaFunction} */ (require(fileName))
+  }
   start()
 }
 

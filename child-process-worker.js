@@ -1,14 +1,13 @@
-const path = require('path')
 const childProcess = require('child_process')
 const util = require('./util')
 
-var WORKER_PATH = '/tmp/worker.js' //path.join(__dirname, 'worker.js')
+const WORKER_PATH = '/tmp/worker.js' // path.join(__dirname, 'worker.js')
 
 const WorkerMain = require('./worker')
-require('fs').writeFileSync('/tmp/worker.js', ';('+WorkerMain.toString()+')();function __name (){}; ')
+require('fs').writeFileSync('/tmp/worker.js', ';(' + WorkerMain.toString() + ')();function __name (){}; ')
 
 class ChildProcessWorker {
-  constructor ({path, entry, env, handler, runtime = 'nodejs:12', stdout, stderr}) {
+  constructor ({ path, entry, env, handler, runtime = 'nodejs:12', stdout, stderr }) {
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     this.responses = {}
     this.path = path
@@ -31,7 +30,7 @@ class ChildProcessWorker {
      */
     util.invokeUnref(proc)
     util.invokeUnref(proc.channel)
-    util.pipeStdio(proc, {stdout, stderr})
+    util.pipeStdio(proc, { stdout, stderr })
     proc.on('message', (
       /** @type {Record<string, unknown>} */ msg
     ) => {

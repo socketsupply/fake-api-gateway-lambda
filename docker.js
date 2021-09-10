@@ -1,24 +1,24 @@
 'use strict'
 
-const util = require('util')
+const util = require('./util')
 const _path = require('path')
 const events = require('events')
 const fs = require('fs')
 const cp = require('child_process')
 const fetch = require('node-fetch').default
-const ncp = util.promisify(require('ncp'))
-const util = require('./util')
+const { promisify } = require('util')
+const ncp = promisify(require('ncp'))
 // run lambda process within docker.
-
 
 let START_PORT = ~~(9000 + Math.random() * 1000)
 
 async function copy (src, dest, cb) {
-  await fs.promises.mkdir(dest, {recursive:true})
+  await fs.promises.mkdir(dest, { recursive: true })
   return ncp(src, dest, {})
 }
 
 function createDockerfile (runtime, handler) {
+  // eslint-disable-start
   return `
 FROM public.ecr.aws/lambda/${runtime}
 
@@ -26,17 +26,18 @@ FROM public.ecr.aws/lambda/${runtime}
 COPY * $\{LAMBDA_TASK_ROOT}/
 
 # Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
-CMD [ "${handler}" ]
+CMD [ ${handler} ]
 `
+// eslint-disable-end
 }
 
 async function dockerLambdaReady (port, max = 1000) {
-  var start = Date.now()
-  while(Date.now() < max + start) {
+  const start = Date.now()
+  while (Date.now() < max + start) {
     try {
-      return await fetch('http://localhost:${port}')
+      return await fetch(`http://localhost:${port}`)
     } catch (err) {
-       //loop...
+      // loop...
     }
   }
 }
@@ -48,7 +49,7 @@ function log (proc) {
 }
 
 class DockerLambda {
-  constructor ({path, entry, env, handler, runtime, stderr, stdout, id, tmp}) {
+  constructor ({ path, entry, env, handler, runtime, stderr, stdout, id, tmp }) {
     this.path = path
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     // copy input to tmp dir
@@ -56,34 +57,37 @@ class DockerLambda {
     // run docker build
     // start docker
     // use fetch, but return expected event object.
+    this.id = id || '' + Date.now()
+    this.tmp = tmp || '/tmp/' + id
+
     this.port = START_PORT++
     this.entry = entry
     this.env = env
     this.handler = handler
-    this.runtime = runtime  
-
+    this.runtime = runtime
+    this.stdout = stdout
+    this.stderr = stderr
     this.ready = this.bootstrap()
   }
 
   async bootstrap () {
-        const envArray = Object.keys(this.env)
+    const envArray = Object.keys(this.env)
       .map(k => ['--env', k + '=' + this.env[k]])
       .reduce((a, b) => a.concat(b), [])
 
-    //const id = 'operator-docker_' + Date.now()
-    //const tmp = '/tmp/' + id
-    id = id || ''+Date.now()
-    tmp = tmp || '/tmp/'+id
-    await copy(_path.dirname(this.entry), tmp)
+    // const id = 'operator-docker_' + Date.now()
+    // const tmp = '/tmp/' + id
+    await copy(_path.dirname(this.entry), this.tmp)
     const basename = _path.basename(this.entry)
     const base = basename.substring(0, basename.indexOf(_path.extname(basename)))
     await fs.promises.writeFile(
-      _path.join(tmp, 'Dockerfile'),
-      createDockerfile('nodejs:12', base + '.' + this.handler))
-        
-    console.log(['>docker', 'build', tmp, '-t', id].join(' '))
-      
-    this.proc = log(cp.spawn('docker', ['build', tmp, '-t', id]))
+      _path.join(this.tmp, 'Dockerfile'),
+      createDockerfile('nodejs:12', base + '.' + this.handler)
+    )
+
+    console.log(['>docker', 'build', this.tmp, '-t', this.id].join(' '))
+
+    this.proc = log(cp.spawn('docker', ['build', this.tmp, '-t', this.id]))
     const [code] = await events.once(this.proc, 'exit')
 
     if (code) { throw new Error('docker build failed') }
@@ -92,18 +96,18 @@ class DockerLambda {
     if (this.closed) return
     // throw new Error('closed during startup')
 
-    console.log(['>docker', 'run', '-it', '-p', `${this.port}:8080`].concat(envArray).concat([id]).join(' '))
-        //  this.proc = log(cp.spawn('docker', ['run', id, '-p', `${this.port}:8080`].concat(envArray)))
+    console.log(['>docker', 'run', '-it', '-p', `${this.port}:8080`].concat(envArray).concat([this.id]).join(' '))
+    //  this.proc = log(cp.spawn('docker', ['run', id, '-p', `${this.port}:8080`].concat(envArray)))
 
     // if the id isn't the very last argument you'll get an error
     // "entrypoint requires that handler must be first arg"
     // which won't help you figure it out.
-    var proc = this.proc = log(cp.spawn('docker', ['run', '-p', `${this.port}:8080`]
+    const proc = this.proc = log(cp.spawn('docker', ['run', '-p', `${this.port}:8080`]
       .concat(envArray)
-      .concat([id])
+      .concat([this.id])
     ))
 
-    util.pipeStdio(proc, {stdout, stderr})
+    util.pipeStdio(proc, { stdout: this.stdout, stderr: this.stderr })
 
     await dockerLambdaReady(this.port)
   }

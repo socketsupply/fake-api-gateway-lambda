@@ -6,7 +6,7 @@ const https = require('https')
 const util = require('util')
 const url = require('url')
 const matchRoute = require('./match')
-//const WorkerPool = require('./worker-pool')
+// const WorkerPool = require('./worker-pool')
 
 const ChildProcessWorker = require('./child-process-worker')
 
@@ -70,18 +70,18 @@ class FakeApiGatewayLambda {
     /** @type {number} */
     this.port = options.port || 0
     /** @type {Record<string, string>} */
-    //support old style... as used in the tests
+    // support old style... as used in the tests
     /** @type {Record<string, string>} */
     this.env = options.env || {}
-    if(options.routes) {
+    if (options.routes) {
       this.functions = Object.entries(options.routes).map(([key, value]) => ({
         path: key,
         entry: value
       }))
+    } else {
+    // pass in functiosn array to pass more parameters to each function.
+      this.functions = [...options.functions].map(f => ({ ...f }))
     }
-    else
-      //pass in functiosn array to pass more parameters to each function.
-      this.functions = [...options.functions].map(f => ({...f}))
 
     /** @type {boolean} */
     this.enableCors = options.enableCors || false
@@ -103,7 +103,7 @@ class FakeApiGatewayLambda {
     this.populateRequestContext = options.populateRequestContext || null
 
     /** @type {WorkerPool} */
-    //this.workerPool = new WorkerPool() // FakeApiGatewayLambda.WORKER_POOL
+    // this.workerPool = new WorkerPool() // FakeApiGatewayLambda.WORKER_POOL
   }
 
   /**
@@ -155,7 +155,8 @@ class FakeApiGatewayLambda {
         stdout: this.stdout,
         stderr: this.stderr,
         tmp: this.tmp,
-        ...fun})
+        ...fun
+      })
     })
 
     const addr = this.httpServer.address()
@@ -180,9 +181,7 @@ class FakeApiGatewayLambda {
 
     const matched = matchRoute(this.functions, url.pathname)
 
-    if (matched)
-      return matched.worker.request(id, eventObject)
-    else {
+    if (matched) { return matched.worker.request(id, eventObject) } else {
       return new Promise((resolve) => {
         resolve({
           isBase64Encoded: false,
@@ -198,9 +197,8 @@ class FakeApiGatewayLambda {
   }
 
   async close () {
-
     const close = (server) => {
-      return server && util.promisify((cb) => { server.close(() => { cb(null, null) })})()
+      return server && util.promisify((cb) => { server.close(() => { cb(null, null) }) })()
     }
 
     await Promise.all([
