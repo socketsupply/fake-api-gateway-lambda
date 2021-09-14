@@ -9,6 +9,7 @@ const matchRoute = require('./match')
 // const WorkerPool = require('./worker-pool')
 
 const ChildProcessWorker = require('./child-process-worker')
+const DockerWorker = require('./docker')
 
 /**
     @typedef {{
@@ -149,9 +150,10 @@ class FakeApiGatewayLambda {
      * by the following lambdas to the WORKER_POOL.
      */
     this.functions.forEach(fun => {
-      fun.worker = new ChildProcessWorker({
+//      fun.worker = new ChildProcessWorker({
+      fun.worker = new DockerWorker({
         env: this.env,
-        runtime: this.runtime,
+        runtime: this.runtime || 'nodejs:12.x',
         stdout: this.stdout,
         stderr: this.stderr,
         tmp: this.tmp,
@@ -180,7 +182,7 @@ class FakeApiGatewayLambda {
     const url = new URL(eventObject.path, 'http://localhost:80')
 
     const matched = matchRoute(this.functions, url.pathname)
-
+    console.log("REQUEST", id, eventObject)
     if (matched) { return matched.worker.request(id, eventObject) } else {
       return new Promise((resolve) => {
         resolve({

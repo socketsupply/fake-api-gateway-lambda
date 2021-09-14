@@ -10,36 +10,12 @@ const { promisify } = require('util')
 const ncp = promisify(require('ncp'))
 // run lambda process within docker.
 
-let START_PORT = ~~(9000 + Math.random() * 1000)
+let START_PORT = ~~(9000 + Math.random() * 10000)
+
 
 async function copy (src, dest, cb) {
   await fs.promises.mkdir(dest, { recursive: true })
   return ncp(src, dest, {})
-}
-
-function createDockerfile (runtime, handler) {
-  // eslint-disable-start
-  return `
-FROM public.ecr.aws/lambda/${runtime}
-
-# Copy function code
-COPY * $\{LAMBDA_TASK_ROOT}/
-
-# Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
-CMD [ ${handler} ]
-`
-// eslint-disable-end
-}
-
-async function dockerLambdaReady (port, max = 1000) {
-  const start = Date.now()
-  while (Date.now() < max + start) {
-    try {
-      return await fetch(`http://localhost:${port}`)
-    } catch (err) {
-      // loop...
-    }
-  }
 }
 
 function log (proc) {
@@ -47,6 +23,47 @@ function log (proc) {
   proc.stderr.on('data', d => process.stderr.write(d))
   return proc
 }
+
+function log_cmd(cmd, argv, env) {
+//    console.log(['>docker', 'build', this.tmp, '-t', this.id].join(' '))
+    console.log(['>'+cmd].concat(argv).join(' '))
+    return log(cp.spawn(cmd, argv, env))
+
+}
+
+function createDockerfile (runtime, handler) {
+  return `
+FROM public.ecr.aws/lambda/${runtime}
+
+# Copy function code
+COPY * $\{LAMBDA_TASK_ROOT}/
+
+# Set the CMD to your handler (could also be done as a parameter override outside of the Dockerfile)
+CMD [ "${handler}" ]
+`
+}
+
+async function sleep (ts) {
+  return new Promise(resolve => { setTimeout(resolve, ts) })
+}
+
+async function dockerLambdaReady (port, max = 10000) {
+  const start = Date.now()
+  while (Date.now() < max + start) {
+    try {
+      var req = await fetch(`http://localhost:${port}`)
+      await sleep(50)
+      console.log("*******READY******", port)
+      console.log(req)
+      console.log()
+      return
+    } catch (err) {
+      // loop...
+      await sleep(200)
+    }
+  }
+}
+
 
 class DockerLambda {
   constructor (args) {
@@ -71,13 +88,13 @@ class DockerLambda {
     // run docker build
     // start docker
     // use fetch, but return expected event object.
-    this.id = id || '' + Date.now()
-    this.tmp = tmp || '/tmp/' + id
+    this.id = id || 'docker_' + Date.now()
+    this.tmp = tmp || '/tmp/' + this.id
 
     this.port = START_PORT++
     this.entry = entry
     this.env = env
-    this.handler = handler
+    this.handler = handler || 'handler'
     this.runtime = runtime
     this.stdout = stdout
     this.stderr = stderr
@@ -99,9 +116,7 @@ class DockerLambda {
       createDockerfile('nodejs:12', base + '.' + this.handler)
     )
 
-    console.log([`>${this.bin}`, 'build', this.tmp, '-t', this.id].join(' '))
-
-    this.proc = log(cp.spawn(this.bin, ['build', this.tmp, '-t', this.id]))
+    this.proc = log_cmd('docker', ['build', this.tmp, '-t', this.id])
     const [code] = await events.once(this.proc, 'exit')
 
     if (code) { throw new Error('docker build failed') }
@@ -110,16 +125,12 @@ class DockerLambda {
     if (this.closed) return
     // throw new Error('closed during startup')
 
-    console.log([`>${this.bin}`, 'run', '-it', '-p', `${this.port}:8080`].concat(envArray).concat([this.id]).join(' '))
-    //  this.proc = log(cp.spawn('docker', ['run', id, '-p', `${this.port}:8080`].concat(envArray)))
-
     // if the id isn't the very last argument you'll get an error
     // "entrypoint requires that handler must be first arg"
     // which won't help you figure it out.
-    const proc = this.proc = log(cp.spawn(this.bin, ['run', '-p', `${this.port}:8080`]
-      .concat(envArray)
-      .concat([this.id])
-    ))
+    this.name = 'name_'+Date.now()
+    const proc = this.proc = log_cmd('docker',
+      ['run', '-p', `${this.port}:8080`, '--name', this.name].concat(envArray).concat([this.id]))
 
     util.pipeStdio(proc, { stdout: this.stdout, stderr: this.stderr })
 
@@ -128,17 +139,38 @@ class DockerLambda {
 
   async request (id, eventObject) {
     await this.ready
-    return (await fetch(`http://localhost:${this.port}/2015-03-31/functions/function/invocations`,
-      { method: 'post', body: JSON.stringify(eventObject) })
-    ).json()
+    let error
+    console.log(`DockerRequest: http://localhost:${this.port}/2015-03-31/functions/function/invocations`)
+    for( var i = 0; i < 10; i++) {
+      try {
+        const req = (await fetch(`http://localhost:${this.port}/2015-03-31/functions/function/invocations`,
+          { method: 'post', body: JSON.stringify(eventObject) })
+        )//.text()
+        const body = await req.text()
+        console.log("BODY:", body)
+        if(!body) console.log(req)
+        return JSON.parse(body)
+      } catch (err) {
+        console.log("RETRY", err.message)
+        await sleep(100)
+       error = err} //loop
+    }
+    throw error
   }
 
   async close () {
+    console.log("CLOSE **************", this.port)
     this.closed = true
     if (this.proc) {
-      this.proc.kill(9)
-      events.once(this.proc, 'exit')
+      //docker run -i
+      //with kill 9 is necessary combination. i think.
+//      const p = events.once(this.proc, 'exit')
+  //    this.proc.kill(9)
+    //  await p
+      this.proc = log_cmd('docker', ['kill', this.name])
+      await events.once(this.proc, 'exit')
     }
+//    return true
   }
 }
 
