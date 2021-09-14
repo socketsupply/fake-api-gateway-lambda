@@ -1,6 +1,6 @@
 {
   "name": "fake-api-gateway-lambda",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "This is a testing utility for testing your lambda functions.",
   "main": "build/src/index.js",
   "scripts": {
