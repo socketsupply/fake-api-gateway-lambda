@@ -8,6 +8,7 @@ exports.handler = function (event, context, callback) {
     }
   }
   let greeter = 'World'
+  console.log(JSON.stringify(event))
   if (event.greeter && event.greeter !== '') {
     greeter = event.greeter
   } else if (event.body && event.body !== '') {
