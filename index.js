@@ -32,9 +32,10 @@ const DockerWorker = require('./docker')
     @typedef {{
         port?: number;
         env?: Record<string, string>;
-        httpsPort?: number,
-        httpsKey?: string,
-        httpsCert?: string,
+        bin?: string;
+        httpsPort?: number;
+        httpsKey?: string;
+        httpsCert?: string;
         enableCors?: boolean;
         silent?: boolean;
         populateRequestContext?: PopulateRequestContextFn;
