@@ -4,13 +4,19 @@ const util = require('./util')
 const WORKER_PATH = '/tmp/worker.js' // path.join(__dirname, 'worker.js')
 
 const WorkerMain = require('./worker')
-require('fs').writeFileSync('/tmp/worker.js', ';(' + WorkerMain.toString() + ')();function __name (){}; ')
+try {
+  require('fs')
+    .writeFileSync('/tmp/worker.js', ';(' + WorkerMain.toString() + ')();function __name (){}; ')
+} catch (err) {}
 
 class ChildProcessWorker {
   constructor ({ path, entry, env, handler, runtime = 'nodejs:12', stdout, stderr }) {
     if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
     this.responses = {}
     this.path = path
+
+    this.stdout = stdout || process.stdout
+    this.stderr = stderr || process.stderr
 
     const proc = this.proc = childProcess.spawn(
       process.execPath,
@@ -30,7 +36,20 @@ class ChildProcessWorker {
      */
     util.invokeUnref(proc)
     util.invokeUnref(proc.channel)
-    util.pipeStdio(proc, { stdout, stderr })
+
+    const logStdio = (input, output, name) => {
+      input.on('data', (line) => {
+        output.write(new Date().toISOString() + ' ' +  this.latestId + ` ${name} ` + line)
+      })
+    }
+
+    logStdio(proc.stdout, stdout || process.stdout, 'INFO')
+    logStdio(proc.stdout, stdout || process.stdout, 'ERR')
+
+    util.invokeUnref(proc.stdout)
+    util.invokeUnref(proc.stderr)
+
+
     proc.on('message', (
       /** @type {Record<string, unknown>} */ msg
     ) => {
@@ -55,6 +74,18 @@ class ChildProcessWorker {
 
       const response = this.responses[msg.id]
       if (response) {
+      const duration = Date.now() - this.responses[msg.id].start
+
+      //log like lambda
+      this.stdout.write(
+        `END RequestId: ${msg.id}\n`+
+        `REPORT RequestId: ${msg.id} `+
+          `InitDuration: 0 ms `+
+          `Duration: ${duration} ms ` +
+          `BilledDuration ${Math.round(duration)} ms ` + 
+          `Memory Size: NaN MB MaxMemoryUsed ${Math.round(msg.memory / (1024*1024))} MB\n`
+      )
+
         delete this.responses[msg.id]
         response.resolve(resultObj)
       } else { throw new Error('unknown response id from child process:' + msg.id) }
@@ -72,13 +103,18 @@ class ChildProcessWorker {
   }
 
   request (id, eventObject) {
+    this.latestId = id
+    this.stdout.write(
+      `START RequestId:${id} Version:$LATEST\n`
+    )
+    var start = Date.now()
     this.proc.send({
       message: 'event',
       id,
-      eventObject
+      eventObject,
     })
     return new Promise((resolve, reject) => {
-      this.responses[id] = { resolve, reject }
+      this.responses[id] = { resolve, reject, start }
     })
   }
 
