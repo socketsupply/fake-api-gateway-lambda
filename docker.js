@@ -51,9 +51,6 @@ async function dockerLambdaReady (port, max = 10000) {
     try {
       var req = await fetch(`http://localhost:${port}`)
       await sleep(50)
-      console.log("*******READY******", port)
-      console.log(req)
-      console.log()
       return
     } catch (err) {
       // loop...
@@ -149,19 +146,15 @@ class DockerLambda {
     let error
     const url = `http://localhost:${this.port}/2015-03-31/functions/function/invocations`
 
-    console.log(`DockerRequest: ${url}`)
-
     for (let i = 0; i < 10; i++) {
       try {
         const options = { method: 'post', body: JSON.stringify(eventObject) }
         const req = (await fetch(url, options)) //.text()
         const body = await req.text()
-        console.log("BODY:", body)
 
         if (!body) console.log(req)
         return JSON.parse(body)
       } catch (err) {
-        console.log("RETRY", err.message)
         await sleep(100)
         error = err
       } // loop
@@ -171,7 +164,6 @@ class DockerLambda {
   }
 
   async close () {
-    console.log("CLOSE **************", this.port)
     this.closed = true
 
     if (this.proc) {
