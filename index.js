@@ -186,7 +186,6 @@ class FakeApiGatewayLambda {
     const url = new URL(eventObject.path, 'http://localhost:80')
 
     const matched = matchRoute(this.functions, url.pathname)
-    console.log("REQUEST", id, eventObject)
     if (matched) { return matched.worker.request(id, eventObject) } else {
       return new Promise((resolve) => {
         resolve({
