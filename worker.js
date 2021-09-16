@@ -84,7 +84,6 @@ const main = module.exports = function () {
 
         this.invokeLambda(id, eventObject)
       } else {
-        console.log(msg)
         bail('bad data type from parent process: unknown')
       }
     }
@@ -169,7 +168,8 @@ const main = module.exports = function () {
           headers: result.headers || {},
           body: result.body || '',
           multiValueHeaders: result.multiValueHeaders
-        }
+        },
+        memory: process.memoryUsage().heapUsed
       })
     }
   }
