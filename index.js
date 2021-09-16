@@ -74,6 +74,7 @@ class FakeApiGatewayLambda {
     // support old style... as used in the tests
     /** @type {Record<string, string>} */
     this.env = options.env || {}
+    this.docker = false !== options.docker
     if (options.routes) {
       this.functions = Object.entries(options.routes).map(([key, value]) => ({
         path: key,
@@ -151,14 +152,16 @@ class FakeApiGatewayLambda {
      */
     this.functions.forEach(fun => {
 //      fun.worker = new ChildProcessWorker({
-      fun.worker = new DockerWorker({
+      const opts = {
         env: this.env,
         runtime: this.runtime || 'nodejs:12.x',
         stdout: this.stdout,
         stderr: this.stderr,
         tmp: this.tmp,
         ...fun
-      })
+      }
+
+      fun.worker = this.docker ? new DockerWorker(opts) : new ChildProcessWorker(opts)
     })
 
     const addr = this.httpServer.address()
