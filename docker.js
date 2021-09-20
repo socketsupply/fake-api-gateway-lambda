@@ -22,9 +22,9 @@ function log (proc) {
   return proc
 }
 
-function log_cmd(cmd, argv, env) {
+function logCmd (cmd, argv, env) {
   // console.log(['>docker', 'build', this.tmp, '-t', this.id].join(' '))
-  console.log(['>'+cmd].concat(argv).join(' '))
+  console.log(['>' + cmd].concat(argv).join(' '))
   return log(cp.spawn(cmd, argv, env))
 }
 
@@ -49,7 +49,7 @@ async function dockerLambdaReady (port, max = 10000) {
 
   while (Date.now() < max + start) {
     try {
-      var req = await fetch(`http://localhost:${port}`)
+      await fetch(`http://localhost:${port}`)
       await sleep(50)
       return
     } catch (err) {
@@ -110,7 +110,7 @@ class DockerLambda {
       createDockerfile('nodejs:12', base + '.' + this.handler)
     )
 
-    this.proc = log_cmd(this.bin, ['build', this.tmp, '-t', this.id])
+    this.proc = logCmd(this.bin, ['build', this.tmp, '-t', this.id])
     const [code] = await events.once(this.proc, 'exit')
 
     if (code) { throw new Error('docker build failed') }
@@ -122,7 +122,7 @@ class DockerLambda {
     // if the id isn't the very last argument you'll get an error
     // "entrypoint requires that handler must be first arg"
     // which won't help you figure it out.
-    this.name = 'name_'+Date.now()
+    this.name = 'name_' + Date.now()
 
     const args = [
       'run',
@@ -134,7 +134,7 @@ class DockerLambda {
       this.id
     ]
 
-    const proc = this.proc = log_cmd(this.bin, args)
+    const proc = this.proc = logCmd(this.bin, args)
 
     util.pipeStdio(proc, { stdout: this.stdout, stderr: this.stderr })
 
@@ -149,7 +149,7 @@ class DockerLambda {
     for (let i = 0; i < 10; i++) {
       try {
         const options = { method: 'post', body: JSON.stringify(eventObject) }
-        const req = (await fetch(url, options)) //.text()
+        const req = (await fetch(url, options)) // .text()
         const body = await req.text()
 
         if (!body) console.log(req)
@@ -167,12 +167,12 @@ class DockerLambda {
     this.closed = true
 
     if (this.proc) {
-      //docker run -i
-      //with kill 9 is necessary combination. i think.
+      // docker run -i
+      // with kill 9 is necessary combination. i think.
       // const p = events.once(this.proc, 'exit')
       // this.proc.kill(9)
       // await p
-      this.proc = log_cmd('docker', ['kill', this.name])
+      this.proc = logCmd('docker', ['kill', this.name])
       await events.once(this.proc, 'exit')
     }
     // return true

@@ -24,7 +24,7 @@ class ChildProcessWorker {
     this.stdout.write(
       `START\tRequestId:${id}\tVersion:$LATEST\n`
     )
-    var start = Date.now()
+    const start = Date.now()
 
     const proc = childProcess.spawn(
       process.execPath,
@@ -45,13 +45,13 @@ class ChildProcessWorker {
     util.invokeUnref(proc)
     util.invokeUnref(proc.channel)
 
-    var error
+    let error
     proc.stderr.once('data', function (d) {
-      error = d.toString() //console.error(d.toString())
+      error = d.toString() // console.error(d.toString())
     })
     const logStdio = (input, output, name) => {
       input.on('data', (line) => {
-        output.write(new Date().toISOString() + ' ' +  this.latestId + ` ${name} ` + line)
+        output.write(new Date().toISOString() + ' ' + this.latestId + ` ${name} ` + line)
       })
     }
 
@@ -61,8 +61,10 @@ class ChildProcessWorker {
     util.invokeUnref(proc.stdout)
     util.invokeUnref(proc.stderr)
 
-    var response
-    var ready = new Promise((resolve, reject) => response = {resolve, reject})
+    let response
+    const ready = new Promise((resolve, reject) => {
+      response = { resolve, reject }
+    })
 
     proc.once('message', msg => {
       if (typeof msg !== 'object' || Object.is(msg, null)) {
@@ -85,17 +87,17 @@ class ChildProcessWorker {
       }
 
       if (response) {
-      const duration = Date.now() - start
+        const duration = Date.now() - start
 
-      //log like lambda
-      this.stdout.write(
-        `END\tRequestId: ${msg.id}\n`+
-        `REPORT\tRequestId: ${msg.id}\t`+
-          `InitDuration: 0 ms\t`+
+        // log like lambda
+        this.stdout.write(
+        `END\tRequestId: ${msg.id}\n` +
+        `REPORT\tRequestId: ${msg.id}\t` +
+          'InitDuration: 0 ms\t' +
           `Duration: ${duration} ms\t` +
-          `BilledDuration: ${Math.round(duration)} ms\t` + 
-          `Memory Size: NaN MB MaxMemoryUsed ${Math.round(msg.memory / (1024*1024))} MB\n`
-      )
+          `BilledDuration: ${Math.round(duration)} ms\t` +
+          `Memory Size: NaN MB MaxMemoryUsed ${Math.round(msg.memory / (1024 * 1024))} MB\n`
+        )
 
         response.resolve(resultObj)
         proc.kill(0)
@@ -104,17 +106,17 @@ class ChildProcessWorker {
 
     proc.once('exit', (code) => {
       if (code !== 0) {
-//        var err = new Error()
-//        err.message = error.split('\n')[0]
-//        err.stack = error.split('\n').slice(1).join('\n')
-        var lambdaError = {
-          errorType:"Error",
-          errorMessage: "Error",
+        //        var err = new Error()
+        //        err.message = error.split('\n')[0]
+        //        err.stack = error.split('\n').slice(1).join('\n')
+        const lambdaError = {
+          errorType: 'Error',
+          errorMessage: 'Error',
           stack: error.split('\n')
-          }
+        }
         this.stdout.write(`${new Date(start).toISOString()}\tundefined\tERROR\t${JSON.stringify(lambdaError)}\n`)
-        response.reject({message: "Internal Server Error", error: error})
-        //this is wrong, should not crash.
+        response.reject({ message: 'Internal Server Error', error: error })
+        // this is wrong, should not crash.
       }
     })
 
@@ -125,7 +127,7 @@ class ChildProcessWorker {
     proc.send({
       message: 'event',
       id,
-      eventObject,
+      eventObject
     })
 
     return ready

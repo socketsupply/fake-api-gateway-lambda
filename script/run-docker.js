@@ -4,9 +4,9 @@ const path = require('path')
 const d = new DockerLambda({
   path: '/hello',
   entry: path.join(__dirname, 'hello.js'),
-  env:{},
-  handler:'handler',
-  runtime:'nodejs:12'
+  env: {},
+  handler: 'handler',
+  runtime: 'nodejs:12'
 })
 d.ready.then(() => {
   console.log('done******************')

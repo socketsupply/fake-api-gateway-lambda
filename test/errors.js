@@ -3,18 +3,18 @@ const path = require('path')
 const { FakeApiGatewayLambda } = require('../index.js')
 
 tape('syntax error', async (t) => {
-  var gateway = new FakeApiGatewayLambda({
-      port: 0,
-      env: {},
-      docker: false,
-      routes: {
-        '/syntax': path.join(__dirname, 'lambdas', 'syntax-error.js')
-      }
-    })
+  const gateway = new FakeApiGatewayLambda({
+    port: 0,
+    env: {},
+    docker: false,
+    routes: {
+      '/syntax': path.join(__dirname, 'lambdas', 'syntax-error.js')
+    }
+  })
 
   await gateway.bootstrap()
   try {
-     await gateway.dispatch('1', {path:'/syntax'})
+    await gateway.dispatch('1', { path: '/syntax' })
   } catch (err) {
     t.ok(err)
     console.error(err)
@@ -24,23 +24,23 @@ tape('syntax error', async (t) => {
 })
 
 tape('runtime error', async (t) => {
-  var gateway = new FakeApiGatewayLambda({
-      port: 0,
-      env: {},
-      docker: false,
-      routes: {
-        '/runtime': path.join(__dirname, 'lambdas', 'runtime-error.js')
-      }
-    })
+  const gateway = new FakeApiGatewayLambda({
+    port: 0,
+    env: {},
+    docker: false,
+    routes: {
+      '/runtime': path.join(__dirname, 'lambdas', 'runtime-error.js')
+    }
+  })
 
   await gateway.bootstrap()
-  var r
+  let r
   try {
-     r = await gateway.dispatch('1', {path:'/runtime'})
+    r = await gateway.dispatch('1', { path: '/runtime' })
     t.fail()
   } catch (err) {
     t.ok(err)
-    console.error("ERR", err)
+    console.error('ERR', err)
     gateway.close()
   }
   console.log(r)
