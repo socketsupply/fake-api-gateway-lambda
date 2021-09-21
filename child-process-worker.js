@@ -4,24 +4,38 @@ const util = require('./util')
 const WORKER_PATH = '/tmp/worker.js' // path.join(__dirname, 'worker.js')
 
 const WorkerMain = require('./worker')
-require('fs').writeFileSync('/tmp/worker.js', ';(' + WorkerMain.toString() + ')();function __name (){}; ')
+try {
+  require('fs')
+    .writeFileSync('/tmp/worker.js', ';(' + WorkerMain.toString() + ')();function __name (){}; ')
+} catch (err) {}
 
 class ChildProcessWorker {
-  constructor ({ path, entry, env, handler, runtime = 'nodejs:12', stdout, stderr }) {
-    if (!/^nodejs:/.test(runtime)) { throw new Error('only node.js runtime supported currently') }
+  constructor (options) {
+    if (!/^nodejs:/.test(options.runtime)) { throw new Error('only node.js runtime supported currently') }
     this.responses = {}
-    this.path = path
+    this.procs = []
+    this.stdout = options.stdout || process.stdout
+    this.stderr = options.stderr || process.stderr
+    this.options = options
+  }
 
-    const proc = this.proc = childProcess.spawn(
+  request (id, eventObject) {
+    this.latestId = id
+    this.stdout.write(
+      `START\tRequestId:${id}\tVersion:$LATEST\n`
+    )
+    const start = Date.now()
+
+    const proc = childProcess.spawn(
       process.execPath,
-      [WORKER_PATH, entry, handler],
+      [WORKER_PATH, this.options.entry, this.options.handler],
       {
         stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
         detached: false,
-        env: env
+        env: this.options.env
       }
     )
-
+    this.procs.push(proc)
     /**
      * Since this is a workerpool we unref the child processes
      * so that they do not keep the process open. This is because
@@ -30,10 +44,29 @@ class ChildProcessWorker {
      */
     util.invokeUnref(proc)
     util.invokeUnref(proc.channel)
-    util.pipeStdio(proc, { stdout, stderr })
-    proc.on('message', (
-      /** @type {Record<string, unknown>} */ msg
-    ) => {
+
+    let error
+    proc.stderr.once('data', function (d) {
+      error = d.toString() // console.error(d.toString())
+    })
+    const logStdio = (input, output, name) => {
+      input.on('data', (line) => {
+        output.write(new Date().toISOString() + ' ' + this.latestId + ` ${name} ` + line)
+      })
+    }
+
+    logStdio(proc.stdout, this.options.stdout || process.stdout, 'INFO')
+    logStdio(proc.stdout, this.options.stdout || process.stdout, 'ERR')
+
+    util.invokeUnref(proc.stdout)
+    util.invokeUnref(proc.stderr)
+
+    let response
+    const ready = new Promise((resolve, reject) => {
+      response = { resolve, reject }
+    })
+
+    proc.once('message', msg => {
       if (typeof msg !== 'object' || Object.is(msg, null)) {
         throw new Error('bad data type from child process')
       }
@@ -53,37 +86,56 @@ class ChildProcessWorker {
         throw new Error('missing result from child process:' + msg.result)
       }
 
-      const response = this.responses[msg.id]
       if (response) {
-        delete this.responses[msg.id]
+        const duration = Date.now() - start
+
+        // log like lambda
+        this.stdout.write(
+        `END\tRequestId: ${msg.id}\n` +
+        `REPORT\tRequestId: ${msg.id}\t` +
+          'InitDuration: 0 ms\t' +
+          `Duration: ${duration} ms\t` +
+          `BilledDuration: ${Math.round(duration)} ms\t` +
+          `Memory Size: NaN MB MaxMemoryUsed ${Math.round(msg.memory / (1024 * 1024))} MB\n`
+        )
+
         response.resolve(resultObj)
+        proc.kill(0)
       } else { throw new Error('unknown response id from child process:' + msg.id) }
     })
 
     proc.once('exit', (code) => {
       if (code !== 0) {
-        throw new Error('worker process exited non-zero:' + code)
+        //        var err = new Error()
+        //        err.message = error.split('\n')[0]
+        //        err.stack = error.split('\n').slice(1).join('\n')
+        const lambdaError = {
+          errorType: 'Error',
+          errorMessage: 'Error',
+          stack: error.split('\n')
+        }
+        this.stdout.write(`${new Date(start).toISOString()}\tundefined\tERROR\t${JSON.stringify(lambdaError)}\n`)
+        response.reject({ message: 'Internal Server Error', error: error })
+        // this is wrong, should not crash.
       }
     })
 
     proc.on('error', function (err) {
-      console.error(err)
+      response.reject(err)
     })
-  }
 
-  request (id, eventObject) {
-    this.proc.send({
+    proc.send({
       message: 'event',
       id,
       eventObject
     })
-    return new Promise((resolve, reject) => {
-      this.responses[id] = { resolve, reject }
-    })
+
+    return ready
   }
 
   close () {
-    this.proc.kill(0)
+    this.procs.forEach(v => v.kill(0))
+    this.procs = []
   }
 }
 

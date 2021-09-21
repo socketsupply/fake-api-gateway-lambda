@@ -75,7 +75,7 @@ class FakeApiGatewayLambda {
     // support old style... as used in the tests
     /** @type {Record<string, string>} */
     this.env = options.env || {}
-    this.docker = false !== options.docker
+    this.docker = options.docker !== false
     if (options.routes) {
       this.functions = Object.entries(options.routes).map(([key, value]) => ({
         path: key,
@@ -152,7 +152,7 @@ class FakeApiGatewayLambda {
      * by the following lambdas to the WORKER_POOL.
      */
     this.functions.forEach(fun => {
-//      fun.worker = new ChildProcessWorker({
+      //      fun.worker = new ChildProcessWorker({
       const opts = {
         env: this.env,
         runtime: this.runtime || 'nodejs:12.x',
@@ -186,7 +186,6 @@ class FakeApiGatewayLambda {
     const url = new URL(eventObject.path, 'http://localhost:80')
 
     const matched = matchRoute(this.functions, url.pathname)
-    console.log("REQUEST", id, eventObject)
     if (matched) { return matched.worker.request(id, eventObject) } else {
       return new Promise((resolve) => {
         resolve({
