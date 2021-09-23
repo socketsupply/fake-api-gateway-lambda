@@ -56,7 +56,7 @@ class FakeApiGatewayLambda {
   constructor (options) {
     /** @type {http.Server | null} */
     this.httpServer = http.createServer()
-    this.tmp = options.tmp
+    this._tmp = options.tmp
 
     /** @type {https.Server | null} */
     this.httpsServer = null
@@ -158,7 +158,7 @@ class FakeApiGatewayLambda {
         runtime: this.runtime || 'nodejs:12.x',
         stdout: this.stdout,
         stderr: this.stderr,
-        tmp: this.tmp,
+        tmp: this._tmp,
         ...fun
       }
 
@@ -234,7 +234,7 @@ class FakeApiGatewayLambda {
       /**
        * @raynos TODO: gracefully handle this edgecase.
        */
-      throw new Error('Could not find pending request')
+      throw new Error('response without request: should never happen')
     }
 
     this.pendingRequests.delete(id)
@@ -252,7 +252,8 @@ class FakeApiGatewayLambda {
     }
 
     if (result.isBase64Encoded) {
-      throw new Error('isBase64Encoded is not supported')
+      res.statusCode = 400
+      return res.end(JSON.stringify({message: "Forbidden"}))
     }
 
     res.end(result.body)
@@ -323,23 +324,29 @@ class FakeApiGatewayLambda {
 
       const id = cuuid()
       this.pendingRequests.set(id, { req, res, id })
-
+      this.dispatch(id, eventObject).then(result => {
+        this.handleLambdaResult(id, result)
+      }).catch(err => {
+        this.handleLambdaResult(id, {statusCode:500, headers: {}, body: JSON.stringify(err.message)})
+      })
+      /*
       if (this.populateRequestContext) {
         const reqContext = this.populateRequestContext(eventObject)
         if ('then' in reqContext && typeof reqContext.then === 'function') {
           reqContext.then((
-            /** @type {object} */ reqContext
+            reqContext
           ) => {
             eventObject.requestContext = reqContext
             this.dispatch(id, eventObject).then((obj) => {
               this.handleLambdaResult(id, obj)
             })
           }).catch((
-            /** @type {Error} */ err
+             err
           ) => {
-            process.nextTick(() => {
-              throw err
-            })
+            this.handleLambdaResult(id, {statusCode: 500, body: err.message})
+//            process.nextTick(() => {
+//              throw err
+//            })
           })
         } else {
           eventObject.requestContext = reqContext
@@ -352,6 +359,7 @@ class FakeApiGatewayLambda {
           this.handleLambdaResult(id, obj)
         })
       }
+      */
     })
   }
 
