@@ -48,7 +48,6 @@ tape('runtime error', async (t) => {
   t.end()
 })
 
-
 tape('fetch syntax error', async (t) => {
   const gateway = new FakeApiGatewayLambda({
     port: 0,

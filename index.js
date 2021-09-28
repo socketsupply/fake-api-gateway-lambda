@@ -253,7 +253,7 @@ class FakeApiGatewayLambda {
 
     if (result.isBase64Encoded) {
       res.statusCode = 400
-      return res.end(JSON.stringify({message: "Forbidden"}))
+      return res.end(JSON.stringify({ message: 'Forbidden' }))
     }
 
     res.end(result.body)
@@ -328,12 +328,13 @@ class FakeApiGatewayLambda {
         this.handleLambdaResult(id, result)
       }).catch(err => {
         this.handleLambdaResult(id, {
-          statusCode:500,
+          statusCode: 500,
           headers: {},
           body: JSON.stringify({
             message: err.message,
             stack: err.error.split('\n')
-          }, null, 2)})
+          }, null, 2)
+        })
       })
       /*
       if (this.populateRequestContext) {
