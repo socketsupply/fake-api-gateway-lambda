@@ -327,7 +327,13 @@ class FakeApiGatewayLambda {
       this.dispatch(id, eventObject).then(result => {
         this.handleLambdaResult(id, result)
       }).catch(err => {
-        this.handleLambdaResult(id, {statusCode:500, headers: {}, body: JSON.stringify(err.message)})
+        this.handleLambdaResult(id, {
+          statusCode:500,
+          headers: {},
+          body: JSON.stringify({
+            message: err.message,
+            stack: err.error.split('\n')
+          }, null, 2)})
       })
       /*
       if (this.populateRequestContext) {
