@@ -253,7 +253,7 @@ class FakeApiGatewayLambda {
 
     if (result.isBase64Encoded) {
       res.statusCode = 400
-      return res.end(JSON.stringify({message: "Forbidden"}))
+      return res.end(JSON.stringify({ message: 'Forbidden' }))
     }
 
     res.end(result.body)
@@ -291,6 +291,29 @@ class FakeApiGatewayLambda {
 
     // eslint-disable-next-line node/no-deprecated-api
     const uriObj = url.parse(reqUrl, true)
+    console.log('R', req.headers)
+
+    // if a referrer header is present,
+    // check that the request is from a page we hosted
+    // otherwise, the request could be a locally open web page.
+    // which could be an attacker.
+    if (!this.enableCors && req.headers.referrer) {
+      // eslint-disable-next-line node/no-deprecated-api
+      const refferer = url.parse(req.headers.referrer)
+      if (refferer.hostname !== 'localhost') {
+        res.statusCode = 403
+        return res.end({ message: 'expected request from localhost' })
+      }
+      // allow other ports. locally running apps are trusted, because the user had to start them.
+    }
+
+    // if the host header is not us, the request *thought* it was going to something else
+    // this could be a DNS poisoning attack.
+    if (req.headers.host && req.headers.host.split(':')[0] !== 'localhost') {
+      // error - dns poisoning attack
+      res.statusCode = 403
+      return res.end({ message: 'unexpected host header' })
+    }
 
     let body = ''
     req.on('data', (/** @type {Buffer} */ chunk) => {
@@ -328,12 +351,13 @@ class FakeApiGatewayLambda {
         this.handleLambdaResult(id, result)
       }).catch(err => {
         this.handleLambdaResult(id, {
-          statusCode:500,
+          statusCode: 500,
           headers: {},
           body: JSON.stringify({
             message: err.message,
             stack: err.error.split('\n')
-          }, null, 2)})
+          }, null, 2)
+        })
       })
       /*
       if (this.populateRequestContext) {
