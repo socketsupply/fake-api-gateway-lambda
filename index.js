@@ -76,15 +76,19 @@ class FakeApiGatewayLambda {
     /** @type {Record<string, string>} */
     this.env = options.env || {}
     this.docker = options.docker !== false
+    this.functions = []
+    let functions
     if (options.routes) {
-      this.functions = Object.entries(options.routes).map(([key, value]) => ({
+      functions = Object.entries(options.routes).map(([key, value]) => ({
         path: key,
         entry: value
       }))
     } else {
     // pass in functiosn array to pass more parameters to each function.
-      this.functions = [...options.functions].map(f => ({ ...f }))
+      functions = [...options.functions].map(f => ({ ...f }))
     }
+
+    functions.forEach(fun => this.addWorker(fun))
 
     /** @type {boolean} */
     this.enableCors = options.enableCors || false
@@ -151,8 +155,18 @@ class FakeApiGatewayLambda {
      * We want to register that these routes should be handled
      * by the following lambdas to the WORKER_POOL.
      */
-    this.functions.forEach(fun => {
-      //      fun.worker = new ChildProcessWorker({
+    this.functions.map(fun => this.addWorker(fun))
+
+    const addr = this.httpServer.address()
+    if (!addr || typeof addr === 'string') {
+      throw new Error('invalid http server address')
+    }
+
+    this.hostPort = `localhost:${addr.port}`
+    return this.hostPort
+  }
+
+  addWorker (fun) {
       const opts = {
         env: this.env,
         runtime: this.runtime || 'nodejs:12.x',
@@ -163,15 +177,8 @@ class FakeApiGatewayLambda {
       }
 
       fun.worker = this.docker ? new DockerWorker(opts) : new ChildProcessWorker(opts)
-    })
-
-    const addr = this.httpServer.address()
-    if (!addr || typeof addr === 'string') {
-      throw new Error('invalid http server address')
-    }
-
-    this.hostPort = `localhost:${addr.port}`
-    return this.hostPort
+      this.functions.push(fun)
+      return fun
   }
 
   /**
