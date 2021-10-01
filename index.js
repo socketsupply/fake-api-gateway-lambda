@@ -298,7 +298,6 @@ class FakeApiGatewayLambda {
 
     // eslint-disable-next-line node/no-deprecated-api
     const uriObj = url.parse(reqUrl, true)
-    console.log('R', req.headers)
 
     // if a referer header is present,
     // check that the request is from a page we hosted
