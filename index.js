@@ -293,16 +293,16 @@ class FakeApiGatewayLambda {
     const uriObj = url.parse(reqUrl, true)
     console.log('R', req.headers)
 
-    // if a referrer header is present,
+    // if a referer header is present,
     // check that the request is from a page we hosted
     // otherwise, the request could be a locally open web page.
     // which could be an attacker.
-    if (!this.enableCors && req.headers.referrer) {
+    if (!this.enableCors && req.headers.referer) {
       // eslint-disable-next-line node/no-deprecated-api
-      const refferer = url.parse(req.headers.referrer)
-      if (refferer.hostname !== 'localhost') {
+      const referer = url.parse(req.headers.referer)
+      if (referer.hostname !== 'localhost') {
         res.statusCode = 403
-        return res.end({ message: 'expected request from localhost' })
+        return res.end(JSON.stringify({ message: 'expected request from localhost' }, null, 2))
       }
       // allow other ports. locally running apps are trusted, because the user had to start them.
     }
@@ -312,7 +312,7 @@ class FakeApiGatewayLambda {
     if (req.headers.host && req.headers.host.split(':')[0] !== 'localhost') {
       // error - dns poisoning attack
       res.statusCode = 403
-      return res.end({ message: 'unexpected host header' })
+      return res.end(JSON.stringify({ message: 'unexpected host header' }, null, 2))
     }
 
     let body = ''
