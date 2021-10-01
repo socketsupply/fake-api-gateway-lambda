@@ -61,6 +61,13 @@ tape('local website attack', async (t) => {
   t.end()
 })
 
+tape('fetch syntax error', async (t) => {
+  const result = await fetch(`http://${gateway.hostPort}/syntax`)
+  console.log(result)
+  t.equal(result.status, 500)
+  t.end()
+})
+
 
 
 tape('teardown', async (t) => {

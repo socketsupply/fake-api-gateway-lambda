@@ -345,51 +345,40 @@ class FakeApiGatewayLambda {
         isBase64Encoded: false
       }
 
-      const id = cuuid()
-      this.pendingRequests.set(id, { req, res, id })
-      this.dispatch(id, eventObject).then(result => {
-        this.handleLambdaResult(id, result)
-      }).catch(err => {
-        this.handleLambdaResult(id, {
-          statusCode: 500,
-          headers: {},
-          body: JSON.stringify({
-            message: err.message,
-            stack: err.error.split('\n')
-          }, null, 2)
-        })
-      })
-      /*
       if (this.populateRequestContext) {
         const reqContext = this.populateRequestContext(eventObject)
-        if ('then' in reqContext && typeof reqContext.then === 'function') {
-          reqContext.then((
-            reqContext
-          ) => {
-            eventObject.requestContext = reqContext
-            this.dispatch(id, eventObject).then((obj) => {
-              this.handleLambdaResult(id, obj)
-            })
-          }).catch((
-             err
-          ) => {
-            this.handleLambdaResult(id, {statusCode: 500, body: err.message})
-//            process.nextTick(() => {
-//              throw err
-//            })
+
+        if (reqContext && typeof reqContext.then === 'function') {
+          reqContext.then(context => {
+            eventObject.requestContext = context
+            process.nextTick(() => { doDispatch.call(this) })
+          }).catch(err => {
+            process.nextTick(() => { throw err })
           })
         } else {
           eventObject.requestContext = reqContext
-          this.dispatch(id, eventObject).then((obj) => {
-            this.handleLambdaResult(id, obj)
-          })
+          doDispatch.call(this)
         }
       } else {
-        this.dispatch(id, eventObject).then((obj) => {
-          this.handleLambdaResult(id, obj)
+        doDispatch.call(this)
+      }
+
+      function doDispatch () {
+        const id = cuuid()
+        this.pendingRequests.set(id, { req, res, id })
+        this.dispatch(id, eventObject).then(result => {
+          this.handleLambdaResult(id, result)
+        }).catch(err => {
+          this.handleLambdaResult(id, {
+            statusCode: 500,
+            headers: {},
+            body: JSON.stringify({
+              message: err.message,
+              stack: err.error.split('\n')
+            }, null, 2)
+          })
         })
       }
-      */
     })
   }
 
