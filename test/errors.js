@@ -3,38 +3,34 @@ const path = require('path')
 const { FakeApiGatewayLambda } = require('../index.js')
 const fetch = require('node-fetch').default
 
-tape('syntax error', async (t) => {
-  const gateway = new FakeApiGatewayLambda({
-    port: 0,
-    env: {},
-    docker: false,
-    routes: {
-      '/syntax': path.join(__dirname, 'lambdas', 'syntax-error.js')
-    }
-  })
+const gateway = new FakeApiGatewayLambda({
+  port: 0,
+  env: {},
+  docker: false,
+  routes: {
+    '/hello': path.join(__dirname, 'lambdas', 'hello.js'),
+    '/syntax': path.join(__dirname, 'lambdas', 'syntax-error.js'),
+    '/runtime': path.join(__dirname, 'lambdas', 'runtime-error.js')
 
+  }
+})
+
+tape('setup', async (t) => {
   await gateway.bootstrap()
+  t.end()
+})
+
+tape('syntax error', async (t) => {
   try {
     await gateway.dispatch('1', { path: '/syntax' })
   } catch (err) {
     t.ok(err)
     console.error(err)
-    gateway.close()
     t.end()
   }
 })
 
 tape('runtime error', async (t) => {
-  const gateway = new FakeApiGatewayLambda({
-    port: 0,
-    env: {},
-    docker: false,
-    routes: {
-      '/runtime': path.join(__dirname, 'lambdas', 'runtime-error.js')
-    }
-  })
-
-  await gateway.bootstrap()
   let r
   try {
     r = await gateway.dispatch('1', { path: '/runtime' })
@@ -42,46 +38,32 @@ tape('runtime error', async (t) => {
   } catch (err) {
     t.ok(err)
     console.error('ERR', err)
-    gateway.close()
   }
   console.log(r)
   t.end()
 })
 
-
-tape('fetch syntax error', async (t) => {
-  const gateway = new FakeApiGatewayLambda({
-    port: 0,
-    env: {},
-    docker: false,
-    routes: {
-      '/syntax': path.join(__dirname, 'lambdas', 'syntax-error.js')
-    }
-  })
-
-  await gateway.bootstrap()
-
-  const result = await fetch(`http://${gateway.hostPort}/syntax`)
+tape('dns-poison', async (t) => {
+  const result = await fetch(`http://${gateway.hostPort}/hello`, {headers: {
+    host: 'http://dns-poisoning-attack.com'
+  }})
   console.log(result)
-  t.equal(result.status, 500)
-  gateway.close()
+  t.equal(result.status, 403)
   t.end()
 })
 
-tape('fetch runtime error', async (t) => {
-  const gateway = new FakeApiGatewayLambda({
-    port: 0,
-    env: {},
-    docker: false,
-    routes: {
-      '/runtime': path.join(__dirname, 'lambdas', 'runtime-error.js')
-    }
-  })
+tape('local website attack', async (t) => {
+  const result = await fetch(`http://${gateway.hostPort}/hello`, {headers: {
+    referer: 'http://example.com'
+  }})
+  console.log(result)
+  t.equal(result.status, 403)
+  t.end()
+})
 
-  await gateway.bootstrap()
 
-  const result = await fetch(`http://${gateway.hostPort}/runtime`)
-  t.equal(result.status, 500)
-  gateway.close()
+
+tape('teardown', async (t) => {
+  await gateway.close()
   t.end()
 })
