@@ -44,18 +44,22 @@ tape('runtime error', async (t) => {
 })
 
 tape('dns-poison', async (t) => {
-  const result = await fetch(`http://${gateway.hostPort}/hello`, {headers: {
-    host: 'http://dns-poisoning-attack.com'
-  }})
+  const result = await fetch(`http://${gateway.hostPort}/hello`, {
+    headers: {
+      host: 'http://dns-poisoning-attack.com'
+    }
+  })
   console.log(result)
   t.equal(result.status, 403)
   t.end()
 })
 
 tape('local website attack', async (t) => {
-  const result = await fetch(`http://${gateway.hostPort}/hello`, {headers: {
-    referer: 'http://example.com'
-  }})
+  const result = await fetch(`http://${gateway.hostPort}/hello`, {
+    headers: {
+      referer: 'http://example.com'
+    }
+  })
   console.log(result)
   t.equal(result.status, 403)
   t.end()
@@ -67,8 +71,6 @@ tape('fetch syntax error', async (t) => {
   t.equal(result.status, 500)
   t.end()
 })
-
-
 
 tape('teardown', async (t) => {
   await gateway.close()
