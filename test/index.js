@@ -2,7 +2,7 @@
 
 // const log = require('why-is-node-running')
 // setInterval(log, 10000).unref()
-
+const path = require('path')
 const { test } = require('./test-harness')
 
 test('calling /hello with ENV vars 1', {
@@ -136,3 +136,16 @@ test('calling not found endpoint', async (harness, assert) => {
   const b = await res.text()
   assert.equal(b, '{"message":"Forbidden"}')
 })
+
+test('calling not found endpoint', async (harness, assert) => {
+  harness.lambda.addWorker({
+    path: '/foo',
+    entry: path.join(__dirname, 'lambdas', 'hello.js')
+  })
+  const res = await harness.fetch('/foo')
+  assert.equal(res.status, 200)
+
+  const b = await res.text()
+//  assert.equal(b, '{"message":"Forbidden"}')
+})
+
