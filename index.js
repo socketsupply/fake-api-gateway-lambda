@@ -167,18 +167,18 @@ class FakeApiGatewayLambda {
   }
 
   addWorker (fun) {
-      const opts = {
-        env: this.env,
-        runtime: this.runtime || 'nodejs:12.x',
-        stdout: this.stdout,
-        stderr: this.stderr,
-        tmp: this._tmp,
-        ...fun
-      }
+    const opts = {
+      env: this.env,
+      runtime: this.runtime || 'nodejs:12.x',
+      stdout: this.stdout,
+      stderr: this.stderr,
+      tmp: this._tmp,
+      ...fun
+    }
 
-      fun.worker = this.docker ? new DockerWorker(opts) : new ChildProcessWorker(opts)
-      this.functions.push(fun)
-      return fun
+    fun.worker = this.docker ? new DockerWorker(opts) : new ChildProcessWorker(opts)
+    this.functions.push(fun)
+    return fun
   }
 
   /**

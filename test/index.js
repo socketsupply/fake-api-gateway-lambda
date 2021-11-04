@@ -145,7 +145,6 @@ test('calling not found endpoint', async (harness, assert) => {
   const res = await harness.fetch('/foo')
   assert.equal(res.status, 200)
 
-  const b = await res.text()
+//  const b = await res.text()
 //  assert.equal(b, '{"message":"Forbidden"}')
 })
-
