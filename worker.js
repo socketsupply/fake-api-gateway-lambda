@@ -1,16 +1,17 @@
-const main = module.exports = function () {
 // @ts-check
-  'use strict'
+'use strict'
+
+const main = module.exports = function () {
   /**
- * This is the worker child process that imports the lambda
- * user code.
- *
- * This needs to do a bunch of "simulation" work to make
- * it appear like a real AWS lambda.
- *
- * https://github.com/ashiina/lambda-local
- * https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
- */
+   * This is the worker child process that imports the lambda
+   * user code.
+   *
+   * This needs to do a bunch of "simulation" work to make
+   * it appear like a real AWS lambda.
+   *
+   * https://github.com/ashiina/lambda-local
+   * https://docs.aws.amazon.com/lambda/latest/dg/nodejs-prog-model-context.html
+   */
 
   /**
     @typedef {{
@@ -53,9 +54,13 @@ const main = module.exports = function () {
     }
 
     /**
-   * @param {Record<string, unknown>} msg
-   * @returns {void}
-   */
+     * @param {{
+     *    message: string,
+     *    id: string,
+     *    eventObject: Record<string, unknown>
+     * }} msg
+     * @returns {void}
+     */
     handleMessage (msg) {
       if (typeof msg !== 'object' || Object.is(msg, null)) {
         bail('bad data type from parent process: handleMessage')
@@ -76,7 +81,7 @@ const main = module.exports = function () {
         const eventObject = objMsg.eventObject
         if (
           typeof eventObject !== 'object' ||
-        eventObject === null
+          eventObject === null
         ) {
           bail('missing eventObject from parent process: event')
           return
@@ -175,10 +180,12 @@ const main = module.exports = function () {
   }
 
   function start () {
-    const worker = new LambdaWorker(process.argv[2], process.env, process.argv[3] || 'handler')
-    process.on('message', (
-    /** @type {Record<string, unknown>} */ msg
-    ) => {
+    const worker = new LambdaWorker(
+      process.argv[2],
+      process.env,
+      process.argv[3] || 'handler'
+    )
+    process.on('message', (msg) => {
       worker.handleMessage(msg)
     })
   }
