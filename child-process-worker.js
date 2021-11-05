@@ -112,6 +112,8 @@ class ChildProcessWorker {
     })
 
     proc.once('exit', (code) => {
+      code = code || 0
+
       if (code !== 0) {
         //        var err = new Error()
         //        err.message = error.split('\n')[0]
