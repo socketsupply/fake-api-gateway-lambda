@@ -23,7 +23,9 @@ class TestCommon {
       docker: false,
       populateRequestContext: options && options.requestContext,
       routes: {
-        '/hello': path.join(__dirname, '..', 'lambdas', 'hello.js')
+        '/hello': path.join(__dirname, '..', 'lambdas', 'hello.js'),
+        '/syntax': path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
+        '/runtime': path.join(__dirname, '..', 'lambdas', 'runtime-error.js')
       }
     })
   }
