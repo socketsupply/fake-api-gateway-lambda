@@ -41,7 +41,6 @@
     }
   ],
   "dependencies": {
-    "mkdirp": "^0.5.5",
     "ncp": "^2.0.0"
   }
 }
