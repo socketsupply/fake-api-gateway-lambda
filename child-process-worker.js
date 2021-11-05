@@ -1,3 +1,6 @@
+// @ts-check
+'use strict'
+
 const childProcess = require('child_process')
 const util = require('./util')
 
@@ -16,7 +19,11 @@ class ChildProcessWorker {
     this.procs = []
     this.stdout = options.stdout || process.stdout
     this.stderr = options.stderr || process.stderr
-    this.options = options
+
+    this.entry = options.entry
+    this.handler = options.handler
+    this.env = options.env
+    // this.options = options
   }
 
   request (id, eventObject) {
@@ -28,11 +35,11 @@ class ChildProcessWorker {
 
     const proc = childProcess.spawn(
       process.execPath,
-      [WORKER_PATH, this.options.entry, this.options.handler],
+      [WORKER_PATH, this.entry, this.handler],
       {
         stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
         detached: false,
-        env: this.options.env
+        env: this.env
       }
     )
     this.procs.push(proc)
@@ -55,8 +62,8 @@ class ChildProcessWorker {
       })
     }
 
-    logStdio(proc.stdout, this.options.stdout || process.stdout, 'INFO')
-    logStdio(proc.stdout, this.options.stdout || process.stdout, 'ERR')
+    logStdio(proc.stdout, this.stdout || process.stdout, 'INFO')
+    logStdio(proc.stdout, this.stdout || process.stdout, 'ERR')
 
     util.invokeUnref(proc.stdout)
     util.invokeUnref(proc.stderr)
@@ -100,11 +107,13 @@ class ChildProcessWorker {
         )
 
         response.resolve(resultObj)
-        proc.kill(0)
+        proc.kill()
       } else { throw new Error('unknown response id from child process:' + msg.id) }
     })
 
     proc.once('exit', (code) => {
+      code = code || 0
+
       if (code !== 0) {
         //        var err = new Error()
         //        err.message = error.split('\n')[0]
@@ -141,7 +150,6 @@ class ChildProcessWorker {
 
 /**
  * @param {unknown} v
- * @returns {v is LambdaResult}
  */
 function checkResult (v) {
   if (typeof v !== 'object' || !v) {

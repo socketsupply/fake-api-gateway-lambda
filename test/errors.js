@@ -1,78 +1,68 @@
-const tape = require('@pre-bundled/tape')
-const path = require('path')
-const { FakeApiGatewayLambda } = require('../index.js')
-const fetch = require('node-fetch').default
+// @ts-check
+'use strict'
 
-const gateway = new FakeApiGatewayLambda({
-  port: 0,
-  env: {},
-  docker: false,
-  routes: {
-    '/hello': path.join(__dirname, 'lambdas', 'hello.js'),
-    '/syntax': path.join(__dirname, 'lambdas', 'syntax-error.js'),
-    '/runtime': path.join(__dirname, 'lambdas', 'runtime-error.js')
+const { test } = require('tapzero')
 
-  }
-})
+const TestCommon = require('./common/test-common.js')
 
-tape('setup', async (t) => {
-  await gateway.bootstrap()
-  t.end()
-})
+test('syntax error', async (t) => {
+  const common = await TestCommon.create()
 
-tape('syntax error', async (t) => {
   try {
-    await gateway.dispatch('1', { path: '/syntax' })
-  } catch (err) {
-    t.ok(err)
-    console.error(err)
-    t.end()
+    const resp = await common.fetch('/syntax')
+    t.equal(resp.status, 500)
+
+    const body = await resp.json()
+
+    t.ok(body)
+    t.equal(body.message, 'Internal Server Error')
+  } finally {
+    await common.close()
   }
 })
 
-tape('runtime error', async (t) => {
-  let r
+test('runtime error', async (t) => {
+  const common = await TestCommon.create()
+
   try {
-    r = await gateway.dispatch('1', { path: '/runtime' })
-    t.fail()
-  } catch (err) {
-    t.ok(err)
-    console.error('ERR', err)
+    const resp = await common.fetch('/runtime')
+    t.equal(resp.status, 500)
+
+    const body = await resp.json()
+
+    t.ok(body)
+    t.equal(body.message, 'Internal Server Error')
+  } finally {
+    await common.close()
   }
-  console.log(r)
-  t.end()
 })
 
-tape('dns-poison', async (t) => {
-  const result = await fetch(`http://${gateway.hostPort}/hello`, {
-    headers: {
-      host: 'http://dns-poisoning-attack.com'
-    }
-  })
-  console.log(result)
-  t.equal(result.status, 403)
-  t.end()
+test('dns-poison', async (t) => {
+  const common = await TestCommon.create()
+
+  try {
+    const result = await common.fetch('/hello', {
+      headers: {
+        host: 'http://dns-poisoning-attack.com'
+      }
+    })
+    t.equal(result.status, 403)
+  } finally {
+    await common.close()
+  }
 })
 
-tape('local website attack', async (t) => {
-  const result = await fetch(`http://${gateway.hostPort}/hello`, {
-    headers: {
-      referer: 'http://example.com'
-    }
-  })
-  console.log(result)
-  t.equal(result.status, 403)
-  t.end()
-})
+test('local website attack', async (t) => {
+  const common = await TestCommon.create()
 
-tape('fetch syntax error', async (t) => {
-  const result = await fetch(`http://${gateway.hostPort}/syntax`)
-  console.log(result)
-  t.equal(result.status, 500)
-  t.end()
-})
-
-tape('teardown', async (t) => {
-  await gateway.close()
-  t.end()
+  try {
+    const resp = await common.fetch('/hello', {
+      headers: {
+        referer: 'http://example.com'
+      }
+    })
+    t.equal(resp.status, 403)
+  } finally {
+    await common.close()
+  }
 })

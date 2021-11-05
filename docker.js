@@ -1,3 +1,4 @@
+// @ts-check
 'use strict'
 
 const util = require('./util')
@@ -7,11 +8,13 @@ const fs = require('fs')
 const cp = require('child_process')
 const fetch = require('node-fetch').default
 const { promisify } = require('util')
+
+/** @type {(src: string, dest: string, opts: {}) => Promise<void>} */
 const ncp = promisify(require('ncp'))
 
 let START_PORT = ~~(9000 + Math.random() * 10000)
 
-async function copy (src, dest, cb) {
+async function copy (src, dest) {
   await fs.promises.mkdir(dest, { recursive: true })
   return ncp(src, dest, {})
 }
@@ -141,7 +144,7 @@ class DockerLambda {
     await dockerLambdaReady(this.port)
   }
 
-  async request (id, eventObject) {
+  async request (_id, eventObject) {
     await this.ready
     let error
     const url = `http://localhost:${this.port}/2015-03-31/functions/function/invocations`

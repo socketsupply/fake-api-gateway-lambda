@@ -11,11 +11,12 @@
   "include": [
     "_types/**/*.d.ts",
     "*.js",
-    "test/**/*",
-    "node_modules/tape-cluster/index.js"
+    "test/**/*"
   ],
   "exclude": [
     "node_modules",
-    "test/lambdas/hello.js"
+    "test/lambdas/hello.js",
+    "test/lambdas/syntax-error.js",
+    "test/lambdas/runtime-error.js"
   ]
 }

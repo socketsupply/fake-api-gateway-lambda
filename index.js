@@ -5,7 +5,7 @@ const http = require('http')
 const https = require('https')
 const util = require('util')
 const url = require('url')
-const matchRoute = require('./match')
+const URL = require('url').URL
 // const WorkerPool = require('./worker-pool')
 
 const ChildProcessWorker = require('./child-process-worker')
@@ -39,8 +39,12 @@ const DockerWorker = require('./docker')
         enableCors?: boolean;
         silent?: boolean;
         populateRequestContext?: PopulateRequestContextFn;
+        tmp?: string;
+        docker?: boolean;
+        functions?: Array<{ path: string, entry: string }>;
         routes: Record<string, string>;
     }} Options
+
     @typedef {{
         isBase64Encoded: boolean;
         statusCode: number;
@@ -48,6 +52,11 @@ const DockerWorker = require('./docker')
         multiValueHeaders?: Record<string, string[]>;
         body: string;
     }} LambdaResult
+
+    @typedef {{
+        path: string,
+        worker: ChildProcessWorker
+    }} FunctionInfo
 */
 class FakeApiGatewayLambda {
   /**
@@ -76,6 +85,8 @@ class FakeApiGatewayLambda {
     /** @type {Record<string, string>} */
     this.env = options.env || {}
     this.docker = options.docker !== false
+
+    /** @type {FunctionInfo[]} */
     this.functions = []
     let functions
     if (options.routes) {
@@ -169,14 +180,17 @@ class FakeApiGatewayLambda {
   addWorker (fun) {
     const opts = {
       env: this.env,
-      runtime: this.runtime || 'nodejs:12.x',
-      stdout: this.stdout,
-      stderr: this.stderr,
+      runtime: 'nodejs:12.x',
+      stdout: fun.stdout,
+      stderr: fun.stderr,
       tmp: this._tmp,
-      ...fun
+      handler: fun.handler,
+      entry: fun.entry
     }
 
-    fun.worker = this.docker ? new DockerWorker(opts) : new ChildProcessWorker(opts)
+    fun.worker = this.docker
+      ? new DockerWorker(opts)
+      : new ChildProcessWorker(opts)
     this.functions.push(fun)
     return fun
   }
@@ -187,7 +201,7 @@ class FakeApiGatewayLambda {
   /**
    * @param {string} id
    * @param {object} eventObject
-   * @returns {Promise<void>}
+   * @returns {Promise<object>}
    */
   async dispatch (id, eventObject) {
     const url = new URL(eventObject.path, 'http://localhost:80')
@@ -480,4 +494,34 @@ function flattenHeaders (h) {
 function cuuid () {
   const str = (Date.now().toString(16) + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2)).slice(0, 32)
   return str.slice(0, 8) + '-' + str.slice(8, 12) + '-' + str.slice(12, 16) + '-' + str.slice(16, 20) + '-' + str.slice(20)
+}
+
+/**
+ * @param {FunctionInfo[]} functions
+ * @param {string} pathname
+ * @returns {FunctionInfo | null}
+ */
+function matchRoute (functions, pathname) {
+  // what if a path has more than one pattern element?
+  return functions.find(fun => {
+    const route = fun.path
+    const isPattern = route.endsWith('+}')
+
+    if (!isPattern && pathname === route) {
+      return true
+    }
+
+    if (isPattern) {
+      const braceStart = route.lastIndexOf('{')
+      const exactPrefix = route.slice(0, braceStart)
+
+      if (
+        pathname.startsWith(exactPrefix) &&
+        pathname !== exactPrefix
+      ) {
+        return true
+      }
+    }
+    return false
+  })
 }

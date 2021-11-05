@@ -1,18 +1,19 @@
+// @ts-check
 'use strict'
 
-const tape = require('@pre-bundled/tape')
-const tapeCluster = require('tape-cluster')
 const path = require('path')
 const fetch = require('node-fetch').default
 
-const { FakeApiGatewayLambda } = require('../index.js')
+const { FakeApiGatewayLambda } = require('../../index.js')
 
-class TestHarness {
+class TestCommon {
   /**
-   * @param {{
+   * @typedef {{
    *     env?: Record<string, string>,
    *     requestContext?: (e: object) => Promise<object> | object
-   * }} [options]
+   * }} Options
+   *
+   * @param {Options} [options]
    */
   constructor (options) {
     /** @type {FakeApiGatewayLambda} */
@@ -22,9 +23,20 @@ class TestHarness {
       docker: false,
       populateRequestContext: options && options.requestContext,
       routes: {
-        '/hello': path.join(__dirname, 'lambdas', 'hello.js')
+        '/hello': path.join(__dirname, '..', 'lambdas', 'hello.js'),
+        '/syntax': path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
+        '/runtime': path.join(__dirname, '..', 'lambdas', 'runtime-error.js')
       }
     })
+  }
+
+  /**
+   * @param {Options} [options]
+   */
+  static async create (options) {
+    const c = new TestCommon(options)
+    await c.bootstrap()
+    return c
   }
 
   /**
@@ -51,4 +63,4 @@ class TestHarness {
   }
 }
 
-exports.test = tapeCluster(tape, TestHarness)
+module.exports = TestCommon

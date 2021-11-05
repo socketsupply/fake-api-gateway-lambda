@@ -1,5 +1,8 @@
+// @ts-check
+'use strict'
+
 function invokeUnref (arg) {
-  const obj = /** @type {Unrefable | null | { unref: unknown }} */ (arg)
+  const obj = /** @type {null | { unref: unknown }} */ (arg)
   if (obj && obj.unref && typeof obj.unref === 'function') {
     obj.unref()
   }
@@ -17,4 +20,5 @@ exports.pipeStdio = function (proc, stdio) {
   maybePipe(proc.stdout, stdio.stdout || process.stdout)
   maybePipe(proc.stderr, stdio.stderr || process.stderr)
 }
+
 exports.invokeUnref = invokeUnref
