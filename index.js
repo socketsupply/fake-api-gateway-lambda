@@ -177,6 +177,25 @@ class FakeApiGatewayLambda {
     return this.hostPort
   }
 
+  /**
+   * @param {number} newPort
+   */
+  async changePort (newPort) {
+    this.port = newPort
+
+    if (this.httpServer) {
+      this.httpServer.close()
+      this.httpServer = null
+      this.httpServer = http.createServer()
+    }
+    if (this.httpsServer) {
+      this.httpsServer.close()
+      this.httpsServer = null
+    }
+
+    return await this.bootstrap()
+  }
+
   addWorker (fun) {
     const opts = {
       env: this.env,

@@ -197,3 +197,25 @@ test('adding a lambda worker later', async (t) => {
     await common.close()
   }
 })
+
+test('calling changePort', async (t) => {
+  const common = await TestCommon.create()
+
+  try {
+    common.lambda.addWorker({
+      path: '/foo',
+      entry: path.join(__dirname, 'lambdas', 'hello.js')
+    })
+
+    const oldHostPort = common.lambda.hostPort
+    await common.lambda.changePort(0)
+
+    t.notEqual(oldHostPort, common.lambda.hostPort,
+      'the hostPort has changed')
+
+    const res = await common.fetch('/foo')
+    t.equal(res.status, 200)
+  } finally {
+    await common.close()
+  }
+})
