@@ -5,8 +5,6 @@ const childProcess = require('child_process')
 const fs = require('fs')
 const path = require('path')
 
-const util = require('./util')
-
 const WORKER_PATH = '/tmp/fake-api-gateway-lambda/worker.js'
 
 // const WorkerMain = require('./worker')
@@ -56,8 +54,8 @@ class ChildProcessWorker {
      * we are pooling these child processes globally between
      * many instances of the FakeApiGatewayLambda instances.
      */
-    util.invokeUnref(proc)
-    util.invokeUnref(proc.channel)
+    invokeUnref(proc)
+    invokeUnref(proc.channel)
 
     let error
     proc.stderr.once('data', function (d) {
@@ -72,8 +70,8 @@ class ChildProcessWorker {
     logStdio(proc.stdout, this.stdout || process.stdout, 'INFO')
     logStdio(proc.stdout, this.stdout || process.stdout, 'ERR')
 
-    util.invokeUnref(proc.stdout)
-    util.invokeUnref(proc.stderr)
+    invokeUnref(proc.stdout)
+    invokeUnref(proc.stderr)
 
     let response
     const ready = new Promise((resolve, reject) => {
@@ -186,3 +184,11 @@ function checkResult (v) {
 }
 
 module.exports = ChildProcessWorker
+
+function invokeUnref (arg) {
+  const obj = /** @type {null | { unref: unknown }} */ (arg)
+  if (obj && obj.unref && typeof obj.unref === 'function') {
+    obj.unref()
+  }
+  return arg
+}
