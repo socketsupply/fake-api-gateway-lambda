@@ -2,14 +2,21 @@
 'use strict'
 
 const childProcess = require('child_process')
+const fs = require('fs')
+const path = require('path')
+
 const util = require('./util')
 
-const WORKER_PATH = '/tmp/worker.js' // path.join(__dirname, 'worker.js')
+const WORKER_PATH = '/tmp/fake-api-gateway-lambda/worker.js'
 
-const WorkerMain = require('./worker')
+// const WorkerMain = require('./worker')
 try {
-  require('fs')
-    .writeFileSync('/tmp/worker.js', ';(' + WorkerMain.toString() + ')();function __name (){}; ')
+  fs.mkdirSync(path.dirname(WORKER_PATH), { recursive: true })
+
+  fs.writeFileSync(
+    WORKER_PATH,
+    fs.readFileSync(require.resolve('./worker.js'))
+  )
 } catch (err) {}
 
 class ChildProcessWorker {
