@@ -6,10 +6,8 @@ const https = require('https')
 const util = require('util')
 const url = require('url')
 const URL = require('url').URL
-// const WorkerPool = require('./worker-pool')
 
 const ChildProcessWorker = require('./child-process-worker')
-const DockerWorker = require('./docker')
 
 /**
     @typedef {{
@@ -207,9 +205,7 @@ class FakeApiGatewayLambda {
       entry: fun.entry
     }
 
-    fun.worker = this.docker
-      ? new DockerWorker(opts)
-      : new ChildProcessWorker(opts)
+    fun.worker = new ChildProcessWorker(opts)
     this.functions.push(fun)
     return fun
   }
