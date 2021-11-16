@@ -26,7 +26,7 @@ class ChildProcessWorker {
     this.stderr = options.stderr || process.stderr
 
     this.entry = options.entry
-    this.handler = options.handler
+    this.handler = options.handler || 'handler'
     this.env = options.env
     // this.options = options
   }

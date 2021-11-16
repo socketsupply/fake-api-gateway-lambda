@@ -20,13 +20,20 @@ class TestCommon {
     this.lambda = new FakeApiGatewayLambda({
       port: 0,
       env: options ? options.env : {},
-      docker: false,
-      populateRequestContext: options && options.requestContext,
-      routes: {
-        '/hello': path.join(__dirname, '..', 'lambdas', 'hello.js'),
-        '/syntax': path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
-        '/runtime': path.join(__dirname, '..', 'lambdas', 'runtime-error.js')
-      }
+      populateRequestContext: options && options.requestContext
+    })
+
+    this.lambda.addWorker({
+      entry: path.join(__dirname, '..', 'lambdas', 'hello.js'),
+      httpPath: '/hello'
+    })
+    this.lambda.addWorker({
+      entry: path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
+      httpPath: '/syntax'
+    })
+    this.lambda.addWorker({
+      entry: path.join(__dirname, '..', 'lambdas', 'runtime-error.js'),
+      httpPath: '/runtime'
     })
   }
 

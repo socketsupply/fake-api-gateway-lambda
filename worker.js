@@ -33,7 +33,6 @@ class LambdaWorker {
   constructor (entry, env, handler) {
     /** @type {Record<string, string | undefined>} */
     this.globalEnv = { ...env }
-    this.entry = entry
 
     this.lambdaFunction = dynamicLambdaRequire(entry)
     this.handler = handler
@@ -98,7 +97,11 @@ class LambdaWorker {
      * that we can borrow implementations from.
      */
 
-    const maybePromise = this.lambdaFunction.handler(eventObject, {}, (err, result) => {
+    console.error('this.handler field', this.handler)
+    console.error('whats going on', this.lambdaFunction)
+
+    const fn = this.lambdaFunction[this.handler]
+    const maybePromise = fn(eventObject, {}, (err, result) => {
       if (!result) {
         this.sendError(id, err)
         return
@@ -191,7 +194,7 @@ function main () {
   const worker = new LambdaWorker(
     process.argv[2],
     process.env,
-    process.argv[3] || 'handler'
+    process.argv[3]
   )
   process.on('message', (msg) => {
     worker.handleMessage(msg)
