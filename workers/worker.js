@@ -122,8 +122,6 @@ class LambdaWorker {
    * @returns {void}
    */
   sendError (id, err) {
-    console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err)
-
     /**
      * @raynos TODO: We should identify what AWS lambda does here
      * in co-ordination with AWS API Gateway and return that
@@ -144,12 +142,7 @@ class LambdaWorker {
    * @returns {void}
    */
   sendResult (id, result) {
-    if (typeof process.send !== 'function') {
-      bail('cannot send to parent process')
-      return
-    }
-
-    process.send({
+    const msg = JSON.stringify({
       message: 'result',
       id,
       result: {
@@ -161,6 +154,9 @@ class LambdaWorker {
       },
       memory: process.memoryUsage().heapUsed
     })
+
+    const line = `__FAKE_LAMBDA_START__ ${msg} __FAKE_LAMBDA_END__`
+    process.stdout.write('\n' + line + '\n')
   }
 }
 
@@ -188,7 +184,6 @@ function dynamicLambdaRequire (fileName) {
 }
 
 function main () {
-  console.log('starting process')
   const worker = new LambdaWorker(
     process.argv[2],
     process.env,

@@ -404,7 +404,9 @@ class FakeApiGatewayLambda {
         headers: {},
         body: JSON.stringify({
           message: err.message,
-          stack: err.error.split('\n')
+          stack: err.errorString
+            ? err.errorString.split('\n')
+            : undefined
         }, null, 2)
       })
       return

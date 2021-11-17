@@ -32,6 +32,66 @@ class ChildProcessWorker {
     // this.options = options
   }
 
+  logLine (output, line) {
+    const msg = `${new Date().toISOString()} ${this.latestId} ERR ` + line
+    output.write(msg)
+  }
+
+  /**
+   * @param {{
+   *    stdout: import('stream').Readable,
+   *    output: import('stream').Writable,
+   *    handleMessage: (o: object) => void
+   * }} opts
+   */
+  parseStdout (opts) {
+    const { stdout, output, handleMessage } = opts
+
+    let remainder = ''
+    const START_LEN = '__FAKE_LAMBDA_START__'.length
+    const END_LEN = '__FAKE_LAMBDA_END__'.length
+
+    stdout.on('data', (bytes) => {
+      const str = remainder + bytes.toString()
+      remainder = ''
+
+      if (str.indexOf('\n') === -1) {
+        return this.logLine(output, str)
+      }
+
+      const lines = str.split('\n')
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i]
+        const index = line.indexOf('__FAKE_LAMBDA_START__')
+
+        if (index === -1) {
+          this.logLine(output, line + '\n')
+          continue
+        }
+
+        const start = line.slice(0, index)
+        this.logLine(output, start)
+        const endIndex = line.indexOf('__FAKE_LAMBDA_END__')
+
+        const messageStr = line.slice(index + START_LEN, endIndex)
+        const msgObject = JSON.parse(messageStr.trim())
+        handleMessage(msgObject)
+
+        const end = line.slice(endIndex + END_LEN)
+        if (end.length > 0) {
+          this.logLine(output, end + '\n')
+        }
+      }
+
+      const lastLine = lines[lines.length - 1]
+      if (lastLine.includes('__FAKE_LAMBDA_START__')) {
+        remainder = lastLine
+      } else {
+        this.logLine(output, remainder)
+      }
+    })
+  }
+
   request (id, eventObject) {
     this.latestId = id
     this.stdout.write(
@@ -49,103 +109,99 @@ class ChildProcessWorker {
       }
     )
     this.procs.push(proc)
-    /**
-     * Since this is a workerpool we unref the child processes
-     * so that they do not keep the process open. This is because
-     * we are pooling these child processes globally between
-     * many instances of the FakeApiGatewayLambda instances.
-     */
-    invokeUnref(proc)
-    invokeUnref(proc.channel)
 
-    let error
-    proc.stderr.once('data', function (d) {
-      error = d.toString() // console.error(d.toString())
-    })
-    const logStdio = (input, output, name) => {
-      input.on('data', (line) => {
-        output.write(new Date().toISOString() + ' ' + this.latestId + ` ${name} ` + line)
+    proc.unref()
+    // proc.channel.unref()
+    // proc.stdout.unref()
+    // proc.stderr.unref()
+
+    return new Promise((resolve, reject) => {
+      let errorString
+      proc.stderr.on('data', (line) => {
+        if (!errorString) {
+          errorString = line.toString()
+        }
+
+        const output = this.stderr || process.stderr
+        this.logLine(output, line)
       })
+
+      this.parseStdout({
+        stdout: proc.stdout,
+        output: this.stdout || process.stdout,
+        handleMessage: (msg) => {
+          const resultObject = this.handleMessage(msg, start)
+          proc.kill()
+
+          resolve(resultObject)
+        }
+      })
+
+      proc.once('exit', (code) => {
+        code = code || 0
+
+        if (code !== 0) {
+          //        var err = new Error()
+          //        err.message = error.split('\n')[0]
+          //        err.stack = error.split('\n').slice(1).join('\n')
+          const lambdaError = {
+            errorType: 'Error',
+            errorMessage: 'Error',
+            stack: errorString.split('\n')
+          }
+          this.stdout.write(`${new Date(start).toISOString()}\tundefined\tERROR\t${JSON.stringify(lambdaError)}\n`)
+
+          const err = new Error('Internal Server Error')
+          Reflect.set(err, 'errorString', errorString)
+          reject(err)
+          // this is wrong, should not crash.
+        }
+      })
+
+      proc.on('error', function (err) {
+        reject(err)
+      })
+
+      proc.stdin.write(JSON.stringify({
+        message: 'event',
+        id,
+        eventObject
+      }) + '\n')
+    })
+  }
+
+  handleMessage (msg, start) {
+    if (typeof msg !== 'object' || Object.is(msg, null)) {
+      throw new Error('bad data type from child process')
     }
 
-    logStdio(proc.stdout, this.stdout || process.stdout, 'INFO')
-    logStdio(proc.stderr, this.stderr || process.stderr, 'ERR')
+    const messageType = msg.message
+    if (messageType !== 'result') {
+      throw new Error('incorrect type field from child process:' + msg.type)
+    }
 
-    invokeUnref(proc.stdout)
-    invokeUnref(proc.stderr)
+    const id = msg.id
+    if (typeof id !== 'string') {
+      throw new Error('missing id from child process:' + msg.id)
+    }
 
-    let response
-    const ready = new Promise((resolve, reject) => {
-      response = { resolve, reject }
-    })
+    const resultObj = msg.result
+    if (!checkResult(resultObj)) {
+      throw new Error('missing result from child process:' + msg.result)
+    }
 
-    proc.once('message', msg => {
-      if (typeof msg !== 'object' || Object.is(msg, null)) {
-        throw new Error('bad data type from child process')
-      }
+    const duration = Date.now() - start
 
-      const messageType = msg.message
-      if (messageType !== 'result') {
-        throw new Error('incorrect type field from child process:' + msg.type)
-      }
-
-      const id = msg.id
-      if (typeof id !== 'string') {
-        throw new Error('missing id from child process:' + msg.id)
-      }
-
-      const resultObj = msg.result
-      if (!checkResult(resultObj)) {
-        throw new Error('missing result from child process:' + msg.result)
-      }
-
-      if (response) {
-        const duration = Date.now() - start
-
-        // log like lambda
-        this.stdout.write(
-        `END\tRequestId: ${msg.id}\n` +
-        `REPORT\tRequestId: ${msg.id}\t` +
-          'InitDuration: 0 ms\t' +
-          `Duration: ${duration} ms\t` +
-          `BilledDuration: ${Math.round(duration)} ms\t` +
-          `Memory Size: NaN MB MaxMemoryUsed ${Math.round(msg.memory / (1024 * 1024))} MB\n`
-        )
-
-        response.resolve(resultObj)
-        proc.kill()
-      } else { throw new Error('unknown response id from child process:' + msg.id) }
-    })
-
-    proc.once('exit', (code) => {
-      code = code || 0
-
-      if (code !== 0) {
-        //        var err = new Error()
-        //        err.message = error.split('\n')[0]
-        //        err.stack = error.split('\n').slice(1).join('\n')
-        const lambdaError = {
-          errorType: 'Error',
-          errorMessage: 'Error',
-          stack: error.split('\n')
-        }
-        this.stdout.write(`${new Date(start).toISOString()}\tundefined\tERROR\t${JSON.stringify(lambdaError)}\n`)
-        response.reject({ message: 'Internal Server Error', error: error })
-        // this is wrong, should not crash.
-      }
-    })
-
-    proc.on('error', function (err) {
-      response.reject(err)
-    })
-
-    proc.stdin.write(JSON.stringify({
-      message: 'event',
-      id,
-      eventObject
-    }) + '\n')
-
-    return ready
+    // log like lambda
+    this.stdout.write(
+      `END\tRequestId: ${msg.id}\n` +
+      `REPORT\tRequestId: ${msg.id}\t` +
+        'InitDuration: 0 ms\t' +
+        `Duration: ${duration} ms\t` +
+        `BilledDuration: ${Math.round(duration)} ms\t` +
+        `Memory Size: NaN MB MaxMemoryUsed ${Math.round(msg.memory / (1024 * 1024))} MB\n`
+    )
+    return resultObj
   }
 
   close () {
@@ -185,11 +241,3 @@ function checkResult (v) {
 }
 
 module.exports = ChildProcessWorker
-
-function invokeUnref (arg) {
-  const obj = /** @type {null | { unref: unknown }} */ (arg)
-  if (obj && obj.unref && typeof obj.unref === 'function') {
-    obj.unref()
-  }
-  return arg
-}
