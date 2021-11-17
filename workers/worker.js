@@ -188,13 +188,27 @@ function dynamicLambdaRequire (fileName) {
 }
 
 function main () {
+  console.log('starting process')
   const worker = new LambdaWorker(
     process.argv[2],
     process.env,
     process.argv[3]
   )
-  process.on('message', (msg) => {
-    worker.handleMessage(msg)
+
+  let stdinData = ''
+
+  process.stdin.on('data', (bytes) => {
+    const str = bytes.toString('utf8')
+    stdinData += str
+
+    const lines = stdinData.split('\n')
+    for (let i = 0; i < lines.length - 1; i++) {
+      const line = lines[i]
+      const msg = JSON.parse(line)
+      worker.handleMessage(msg)
+    }
+
+    stdinData = lines[lines.length - 1]
   })
 }
 

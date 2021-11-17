@@ -8,13 +8,13 @@ const os = require('os')
 
 const WORKER_PATH = `${os.tmpdir()}/fake-api-gateway-lambda/worker.js`
 
-// const WorkerMain = require('./worker')
 try {
   fs.mkdirSync(path.dirname(WORKER_PATH), { recursive: true })
-
   fs.writeFileSync(
     WORKER_PATH,
-    fs.readFileSync(require.resolve('./worker.js'))
+    fs.readFileSync(
+      path.join(__dirname, 'workers', 'worker.js')
+    )
   )
 } catch (err) {}
 
@@ -69,7 +69,7 @@ class ChildProcessWorker {
     }
 
     logStdio(proc.stdout, this.stdout || process.stdout, 'INFO')
-    logStdio(proc.stdout, this.stdout || process.stdout, 'ERR')
+    logStdio(proc.stderr, this.stderr || process.stderr, 'ERR')
 
     invokeUnref(proc.stdout)
     invokeUnref(proc.stderr)
@@ -139,11 +139,11 @@ class ChildProcessWorker {
       response.reject(err)
     })
 
-    proc.send({
+    proc.stdin.write(JSON.stringify({
       message: 'event',
       id,
       eventObject
-    })
+    }) + '\n')
 
     return ready
   }

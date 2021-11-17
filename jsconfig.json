@@ -11,8 +11,9 @@
   "include": [
     "_types/**/*.d.ts",
     "*.js",
-    "test/**/*"
-, "experiment/util.js"  ],
+    "test/**/*",
+    "workers/worker.js"
+  ],
   "exclude": [
     "node_modules",
     "test/lambdas/hello.js",
