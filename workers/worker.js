@@ -30,10 +30,7 @@
 */
 
 class LambdaWorker {
-  constructor (entry, env, handler) {
-    /** @type {Record<string, string | undefined>} */
-    this.globalEnv = { ...env }
-
+  constructor (entry, handler) {
     this.lambdaFunction = dynamicLambdaRequire(entry)
     this.handler = handler
   }
@@ -186,7 +183,6 @@ function dynamicLambdaRequire (fileName) {
 function main () {
   const worker = new LambdaWorker(
     process.argv[2],
-    process.env,
     process.argv[3]
   )
 

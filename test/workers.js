@@ -219,3 +219,17 @@ test('calling changePort', async (t) => {
     await common.close()
   }
 })
+
+test.only('calling python handler', async (t) => {
+  const common = await TestCommon.create()
+
+  try {
+    const res = await common.fetch('/python')
+    t.equal(res.status, 200)
+
+    const b = await res.text()
+    t.equal(b, '"Hello from Lambda! (python)"')
+  } finally {
+    await common.close()
+  }
+})

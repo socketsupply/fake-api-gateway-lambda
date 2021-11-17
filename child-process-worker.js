@@ -7,6 +7,7 @@ const path = require('path')
 const os = require('os')
 
 const WORKER_PATH = `${os.tmpdir()}/fake-api-gateway-lambda/worker.js`
+const PYTHON_WORKER_PATH = `${os.tmpdir()}/fake-api-gateway-lambda/worker.py`
 
 try {
   fs.mkdirSync(path.dirname(WORKER_PATH), { recursive: true })
@@ -16,24 +17,46 @@ try {
       path.join(__dirname, 'workers', 'worker.js')
     )
   )
+  fs.writeFileSync(
+    PYTHON_WORKER_PATH,
+    fs.readFileSync(
+      path.join(__dirname, 'workers', 'worker.py')
+    )
+  )
 } catch (err) {}
 
 class ChildProcessWorker {
+  /**
+   * @param {{
+   *    stdout?: object,
+   *    stderr?: object,
+   *    entry: string,
+   *    handler: string,
+   *    env: object,
+   *    runtime: string
+   * }} options
+   */
   constructor (options) {
-    if (!/^nodejs:/.test(options.runtime)) { throw new Error('only node.js runtime supported currently') }
     this.responses = {}
     this.procs = []
     this.stdout = options.stdout || process.stdout
     this.stderr = options.stderr || process.stderr
 
+    this.runtime = options.runtime
     this.entry = options.entry
     this.handler = options.handler || 'handler'
     this.env = options.env
     // this.options = options
   }
 
-  logLine (output, line) {
-    const msg = `${new Date().toISOString()} ${this.latestId} ERR ` + line
+  logLine (output, line, type) {
+    if (line === '') {
+      return
+    }
+
+    console.log('logLine()', JSON.stringify(line))
+
+    const msg = `${new Date().toISOString()} ${this.latestId} ${type} ` + line
     output.write(msg)
   }
 
@@ -56,7 +79,7 @@ class ChildProcessWorker {
       remainder = ''
 
       if (str.indexOf('\n') === -1) {
-        return this.logLine(output, str)
+        return this.logLine(output, str, 'INFO')
       }
 
       const lines = str.split('\n')
@@ -65,7 +88,8 @@ class ChildProcessWorker {
         const index = line.indexOf('__FAKE_LAMBDA_START__')
 
         if (index === -1) {
-          this.logLine(output, line + '\n')
+          if (line === '') continue
+          this.logLine(output, line + '\n', 'INFO')
           continue
         }
 
@@ -79,7 +103,7 @@ class ChildProcessWorker {
 
         const end = line.slice(endIndex + END_LEN)
         if (end.length > 0) {
-          this.logLine(output, end + '\n')
+          this.logLine(output, end + '\n', 'INFO')
         }
       }
 
@@ -87,7 +111,7 @@ class ChildProcessWorker {
       if (lastLine.includes('__FAKE_LAMBDA_START__')) {
         remainder = lastLine
       } else {
-        this.logLine(output, remainder)
+        this.logLine(output, remainder, 'INFO')
       }
     })
   }
@@ -99,36 +123,46 @@ class ChildProcessWorker {
     )
     const start = Date.now()
 
-    const proc = childProcess.spawn(
-      process.execPath,
-      [WORKER_PATH, this.entry, this.handler],
-      {
-        stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-        detached: false,
-        env: this.env
-      }
-    )
-    this.procs.push(proc)
-
-    proc.unref()
-    // proc.channel.unref()
-    // proc.stdout.unref()
-    // proc.stderr.unref()
-
     return new Promise((resolve, reject) => {
+      let proc
+
+      if (this.runtime === 'nodejs:12.x') {
+        proc = childProcess.spawn(
+          process.execPath,
+          [WORKER_PATH, this.entry, this.handler],
+          {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            detached: false,
+            env: this.env
+          }
+        )
+      } else if (this.runtime === 'python3.9') {
+        proc = childProcess.spawn(
+          'python3',
+          [PYTHON_WORKER_PATH, this.entry, this.handler],
+          {
+            // stdio: 'inherit',
+            detached: false,
+            shell: true,
+            env: this.env
+          }
+        )
+      }
+      this.procs.push(proc)
+      proc.unref()
+
       let errorString
       proc.stderr.on('data', (line) => {
         if (!errorString) {
           errorString = line.toString()
         }
 
-        const output = this.stderr || process.stderr
-        this.logLine(output, line)
+        this.logLine(this.stderr, line, 'ERR')
       })
 
       this.parseStdout({
         stdout: proc.stdout,
-        output: this.stdout || process.stdout,
+        output: this.stdout,
         handleMessage: (msg) => {
           const resultObject = this.handleMessage(msg, start)
           proc.kill()
@@ -167,6 +201,7 @@ class ChildProcessWorker {
         id,
         eventObject
       }) + '\n')
+      process.stdin.end()
     })
   }
 
