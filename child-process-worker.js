@@ -8,24 +8,17 @@ const os = require('os')
 
 const tmp = os.tmpdir()
 
+const JS_WORKER_TXT = require('./workers/js-worker-txt.js')
+const PY_WORKER_TXT = require('./workers/py-worker-txt.js')
+
 const WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.js`
 const PYTHON_WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.py`
 
 try {
   fs.mkdirSync(path.dirname(WORKER_PATH), { recursive: true })
-  fs.writeFileSync(
-    WORKER_PATH,
-    fs.readFileSync(
-      path.join(__dirname, 'workers', 'worker.js')
-    )
-  )
+  fs.writeFileSync(WORKER_PATH, JS_WORKER_TXT)
   fs.mkdirSync(path.dirname(PYTHON_WORKER_PATH), { recursive: true })
-  fs.writeFileSync(
-    PYTHON_WORKER_PATH,
-    fs.readFileSync(
-      path.join(__dirname, 'workers', 'worker.py')
-    )
-  )
+  fs.writeFileSync(PYTHON_WORKER_PATH, PY_WORKER_TXT)
 } catch (err) {
   console.error('Could not copy worker.js/py into tmp', err)
 }

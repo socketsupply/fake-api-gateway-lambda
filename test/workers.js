@@ -220,7 +220,7 @@ test('calling changePort', async (t) => {
   }
 })
 
-test.only('calling python handler', async (t) => {
+test('calling python handler', async (t) => {
   const common = await TestCommon.create()
 
   try {

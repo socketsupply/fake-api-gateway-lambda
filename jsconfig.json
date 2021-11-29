@@ -12,7 +12,7 @@
     "_types/**/*.d.ts",
     "*.js",
     "test/**/*",
-    "workers/worker.js"
+    "workers/js-worker-txt.js"
   ],
   "exclude": [
     "node_modules",

@@ -1,3 +1,4 @@
+module.exports = `
 import sys, json, importlib.util
 
 entry = sys.argv[1]
@@ -33,6 +34,7 @@ resultObj = {
   }
 }
 
-line = '\n__FAKE_LAMBDA_START__ ' + json.dumps(resultObj) + '__FAKE_LAMBDA_END__'
+line = '\\n__FAKE_LAMBDA_START__ ' + json.dumps(resultObj) + '__FAKE_LAMBDA_END__'
 
 print(line, flush=True)
+`

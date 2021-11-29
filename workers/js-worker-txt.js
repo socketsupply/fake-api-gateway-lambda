@@ -1,3 +1,5 @@
+module.exports = `
+
 // @ts-check
 'use strict'
 
@@ -152,8 +154,8 @@ class LambdaWorker {
       memory: process.memoryUsage().heapUsed
     })
 
-    const line = `__FAKE_LAMBDA_START__ ${msg} __FAKE_LAMBDA_END__`
-    process.stdout.write('\n' + line + '\n')
+    const line = '__FAKE_LAMBDA_START__ ' + msg + ' __FAKE_LAMBDA_END__'
+    process.stdout.write('\\n' + line + '\\n')
   }
 }
 
@@ -165,7 +167,7 @@ function bail (msg) {
   process.stderr.write(
     'fake-api-gateway-lambda: ' +
       'The lambda process has to exit because: ' +
-      msg + '\n',
+      msg + '\\n',
     () => {
       process.exit(1)
     }
@@ -192,7 +194,7 @@ function main () {
     const str = bytes.toString('utf8')
     stdinData += str
 
-    const lines = stdinData.split('\n')
+    const lines = stdinData.split('\\n')
     for (let i = 0; i < lines.length - 1; i++) {
       const line = lines[i]
       const msg = JSON.parse(line)
@@ -206,3 +208,4 @@ function main () {
 if (module === require.main) {
   main()
 }
+`
