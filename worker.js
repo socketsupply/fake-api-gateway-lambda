@@ -97,9 +97,6 @@ class LambdaWorker {
      * that we can borrow implementations from.
      */
 
-    console.error('this.handler field', this.handler)
-    console.error('whats going on', this.lambdaFunction)
-
     const fn = this.lambdaFunction[this.handler]
     const maybePromise = fn(eventObject, {}, (err, result) => {
       if (!result) {

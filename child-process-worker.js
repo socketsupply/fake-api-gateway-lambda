@@ -4,8 +4,9 @@
 const childProcess = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 
-const WORKER_PATH = '/tmp/fake-api-gateway-lambda/worker.js'
+const WORKER_PATH = `${os.tmpdir()}/fake-api-gateway-lambda/worker.js`
 
 // const WorkerMain = require('./worker')
 try {
