@@ -6,8 +6,10 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 
-const WORKER_PATH = `${os.tmpdir()}/fake-api-gateway-lambda/worker.js`
-const PYTHON_WORKER_PATH = `${os.tmpdir()}/fake-api-gateway-lambda/worker.py`
+const tmp = os.tmpdir()
+
+const WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.js`
+const PYTHON_WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.py`
 
 try {
   fs.mkdirSync(path.dirname(WORKER_PATH), { recursive: true })
@@ -17,6 +19,7 @@ try {
       path.join(__dirname, 'workers', 'worker.js')
     )
   )
+  fs.mkdirSync(path.dirname(PYTHON_WORKER_PATH), { recursive: true })
   fs.writeFileSync(
     PYTHON_WORKER_PATH,
     fs.readFileSync(
