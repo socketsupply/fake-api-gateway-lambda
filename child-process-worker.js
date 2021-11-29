@@ -52,8 +52,6 @@ class ChildProcessWorker {
       return
     }
 
-    console.log('logLine()', JSON.stringify(line))
-
     const msg = `${new Date().toISOString()} ${this.latestId} ${type} ` + line
     output.write(msg)
   }
