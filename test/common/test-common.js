@@ -16,30 +16,35 @@ class TestCommon {
    * @param {Options} [options]
    */
   constructor (options) {
+    const env = options ? options.env : {}
+
     /** @type {FakeApiGatewayLambda} */
     this.lambda = new FakeApiGatewayLambda({
       port: 0,
-      env: options ? options.env : {},
       populateRequestContext: options && options.requestContext
     })
 
-    this.lambda.addWorker({
+    this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.py'),
+      env: env,
       httpPath: '/python',
       handler: 'lambda_handler',
       runtime: 'python3.9'
     })
 
-    this.lambda.addWorker({
+    this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.js'),
+      env: env,
       httpPath: '/hello'
     })
-    this.lambda.addWorker({
+    this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
+      env: env,
       httpPath: '/syntax'
     })
-    this.lambda.addWorker({
+    this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'runtime-error.js'),
+      env: env,
       httpPath: '/runtime'
     })
   }

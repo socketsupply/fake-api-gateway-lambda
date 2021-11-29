@@ -31,7 +31,6 @@ const ChildProcessWorker = require('./child-process-worker')
 
     @typedef {{
         port?: number;
-        env?: Record<string, string>;
         httpsPort?: number;
         httpsKey?: string;
         httpsCert?: string;
@@ -76,11 +75,9 @@ class FakeApiGatewayLambda {
     this.httpsPort = options.httpsPort || null
     /** @type {number} */
     this.port = options.port || 0
-    /** @type {Record<string, string>} */
-    this.env = options.env || {}
 
-    /** @type {FunctionInfo[]} */
-    this.functions = []
+    /** @type {Record<string, FunctionInfo>} */
+    this.functions = {}
 
     /** @type {boolean} */
     this.enableCors = options.enableCors || false
@@ -169,21 +166,25 @@ class FakeApiGatewayLambda {
     return await this.bootstrap()
   }
 
+  hasWorker (httpPath) {
+    return !!this.functions[httpPath]
+  }
+
   /**
-   *
    * @param {{
    *     stdout?: object,
    *     stderr?: object,
    *     handler?: string,
+   *     env?: Record<string, string>,
    *     entry: string,
    *     runtime?: string
    *     httpPath: string
    * }} info
    * @returns {FunctionInfo}
    */
-  addWorker (info) {
+  updateWorker (info) {
     const opts = {
-      env: this.env,
+      env: info.env,
       runtime: info.runtime || 'nodejs:12.x',
       stdout: info.stdout,
       stderr: info.stderr,
@@ -197,7 +198,7 @@ class FakeApiGatewayLambda {
       path: info.httpPath
     }
 
-    this.functions.push(fun)
+    this.functions[info.httpPath] = fun
     return fun
   }
 
@@ -223,7 +224,7 @@ class FakeApiGatewayLambda {
       this.httpsServer = null
     }
 
-    await Promise.all(this.functions.map(f => {
+    await Promise.all(Object.values(this.functions).map(f => {
       return f.worker.close()
     }))
   }
@@ -505,11 +506,13 @@ function cuuid () {
 }
 
 /**
- * @param {FunctionInfo[]} functions
+ * @param {Record<string, FunctionInfo>} functionsDict
  * @param {string} pathname
  * @returns {FunctionInfo | null}
  */
-function matchRoute (functions, pathname) {
+function matchRoute (functionsDict, pathname) {
+  const functions = Object.values(functionsDict)
+
   // what if a path has more than one pattern element?
   return functions.find(fun => {
     const route = fun.path

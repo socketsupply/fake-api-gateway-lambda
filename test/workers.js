@@ -187,7 +187,7 @@ test('adding a lambda worker later', async (t) => {
   const common = await TestCommon.create()
 
   try {
-    common.lambda.addWorker({
+    common.lambda.updateWorker({
       httpPath: '/foo',
       entry: path.join(__dirname, 'lambdas', 'hello.js')
     })
@@ -202,7 +202,7 @@ test('calling changePort', async (t) => {
   const common = await TestCommon.create()
 
   try {
-    common.lambda.addWorker({
+    common.lambda.updateWorker({
       httpPath: '/foo',
       entry: path.join(__dirname, 'lambdas', 'hello.js')
     })
