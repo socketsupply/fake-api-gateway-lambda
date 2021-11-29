@@ -23,7 +23,9 @@ try {
       path.join(__dirname, 'workers', 'worker.py')
     )
   )
-} catch (err) {}
+} catch (err) {
+  console.error('Could not copy worker.js/py into tmp', err)
+}
 
 class ChildProcessWorker {
   /**
