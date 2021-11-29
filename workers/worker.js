@@ -30,10 +30,7 @@
 */
 
 class LambdaWorker {
-  constructor (entry, env, handler) {
-    /** @type {Record<string, string | undefined>} */
-    this.globalEnv = { ...env }
-
+  constructor (entry, handler) {
     this.lambdaFunction = dynamicLambdaRequire(entry)
     this.handler = handler
   }
@@ -122,8 +119,6 @@ class LambdaWorker {
    * @returns {void}
    */
   sendError (id, err) {
-    console.error('FAKE-API-GATEWAY-LAMBDA: rejected promise', err)
-
     /**
      * @raynos TODO: We should identify what AWS lambda does here
      * in co-ordination with AWS API Gateway and return that
@@ -144,12 +139,7 @@ class LambdaWorker {
    * @returns {void}
    */
   sendResult (id, result) {
-    if (typeof process.send !== 'function') {
-      bail('cannot send to parent process')
-      return
-    }
-
-    process.send({
+    const msg = JSON.stringify({
       message: 'result',
       id,
       result: {
@@ -161,6 +151,9 @@ class LambdaWorker {
       },
       memory: process.memoryUsage().heapUsed
     })
+
+    const line = `__FAKE_LAMBDA_START__ ${msg} __FAKE_LAMBDA_END__`
+    process.stdout.write('\n' + line + '\n')
   }
 }
 
@@ -190,11 +183,23 @@ function dynamicLambdaRequire (fileName) {
 function main () {
   const worker = new LambdaWorker(
     process.argv[2],
-    process.env,
     process.argv[3]
   )
-  process.on('message', (msg) => {
-    worker.handleMessage(msg)
+
+  let stdinData = ''
+
+  process.stdin.on('data', (bytes) => {
+    const str = bytes.toString('utf8')
+    stdinData += str
+
+    const lines = stdinData.split('\n')
+    for (let i = 0; i < lines.length - 1; i++) {
+      const line = lines[i]
+      const msg = JSON.parse(line)
+      worker.handleMessage(msg)
+    }
+
+    stdinData = lines[lines.length - 1]
   })
 }
 

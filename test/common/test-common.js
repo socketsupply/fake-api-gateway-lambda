@@ -24,6 +24,13 @@ class TestCommon {
     })
 
     this.lambda.addWorker({
+      entry: path.join(__dirname, '..', 'lambdas', 'hello.py'),
+      httpPath: '/python',
+      handler: 'lambda_handler',
+      runtime: 'python3.9'
+    })
+
+    this.lambda.addWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.js'),
       httpPath: '/hello'
     })

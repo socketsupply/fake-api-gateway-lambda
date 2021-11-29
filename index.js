@@ -176,6 +176,7 @@ class FakeApiGatewayLambda {
    *     stderr?: object,
    *     handler?: string,
    *     entry: string,
+   *     runtime?: string
    *     httpPath: string
    * }} info
    * @returns {FunctionInfo}
@@ -183,7 +184,7 @@ class FakeApiGatewayLambda {
   addWorker (info) {
     const opts = {
       env: this.env,
-      runtime: 'nodejs:12.x',
+      runtime: info.runtime || 'nodejs:12.x',
       stdout: info.stdout,
       stderr: info.stderr,
       tmp: this._tmp,
@@ -404,7 +405,9 @@ class FakeApiGatewayLambda {
         headers: {},
         body: JSON.stringify({
           message: err.message,
-          stack: err.error.split('\n')
+          stack: err.errorString
+            ? err.errorString.split('\n')
+            : undefined
         }, null, 2)
       })
       return
