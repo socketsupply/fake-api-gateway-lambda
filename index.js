@@ -6,10 +6,8 @@ const https = require('https')
 const util = require('util')
 const url = require('url')
 const URL = require('url').URL
-// const WorkerPool = require('./worker-pool')
 
 const ChildProcessWorker = require('./child-process-worker')
-const DockerWorker = require('./docker')
 
 /**
     @typedef {{
@@ -26,13 +24,14 @@ const DockerWorker = require('./docker')
         body: string;
         isBase64Encoded: boolean;
     }} LambdaEvent
+
     @typedef {{
         (eventObject: LambdaEvent): Promise<object> | object;
     }} PopulateRequestContextFn
+
     @typedef {{
         port?: number;
         env?: Record<string, string>;
-        bin?: string;
         httpsPort?: number;
         httpsKey?: string;
         httpsCert?: string;
@@ -40,9 +39,6 @@ const DockerWorker = require('./docker')
         silent?: boolean;
         populateRequestContext?: PopulateRequestContextFn;
         tmp?: string;
-        docker?: boolean;
-        functions?: Array<{ path: string, entry: string }>;
-        routes: Record<string, string>;
     }} Options
 
     @typedef {{
@@ -81,25 +77,10 @@ class FakeApiGatewayLambda {
     /** @type {number} */
     this.port = options.port || 0
     /** @type {Record<string, string>} */
-    // support old style... as used in the tests
-    /** @type {Record<string, string>} */
     this.env = options.env || {}
-    this.docker = options.docker !== false
 
     /** @type {FunctionInfo[]} */
     this.functions = []
-    let functions
-    if (options.routes) {
-      functions = Object.entries(options.routes).map(([key, value]) => ({
-        path: key,
-        entry: value
-      }))
-    } else {
-    // pass in functiosn array to pass more parameters to each function.
-      functions = [...options.functions].map(f => ({ ...f }))
-    }
-
-    functions.forEach(fun => this.addWorker(fun))
 
     /** @type {boolean} */
     this.enableCors = options.enableCors || false
@@ -107,6 +88,7 @@ class FakeApiGatewayLambda {
     this.silent = options.silent || false
     /** @type {string | null} */
     this.hostPort = null
+
     /**
      * @type {Map<string, {
      *    req: http.IncomingMessage,
@@ -119,9 +101,6 @@ class FakeApiGatewayLambda {
     this.gatewayId = cuuid()
     /** @type {PopulateRequestContextFn | null} */
     this.populateRequestContext = options.populateRequestContext || null
-
-    /** @type {WorkerPool} */
-    // this.workerPool = new WorkerPool() // FakeApiGatewayLambda.WORKER_POOL
   }
 
   /**
@@ -136,7 +115,7 @@ class FakeApiGatewayLambda {
       /** @type {http.IncomingMessage} */ req,
       /** @type {http.ServerResponse} */ res
     ) => {
-      this.handleServerRequest(req, res)
+      this._handleServerRequest(req, res)
     })
 
     if (this.httpsServer) {
@@ -144,7 +123,7 @@ class FakeApiGatewayLambda {
         /** @type {http.IncomingMessage} */ req,
         /** @type {http.ServerResponse} */ res
       ) => {
-        this.handleServerRequest(req, res)
+        this._handleServerRequest(req, res)
       })
 
       const httpsServer = this.httpsServer
@@ -161,12 +140,6 @@ class FakeApiGatewayLambda {
         cb(null, null)
       })
     })()
-
-    /**
-     * We want to register that these routes should be handled
-     * by the following lambdas to the WORKER_POOL.
-     */
-    this.functions.map(fun => this.addWorker(fun))
 
     const addr = this.httpServer.address()
     if (!addr || typeof addr === 'string') {
@@ -196,20 +169,33 @@ class FakeApiGatewayLambda {
     return await this.bootstrap()
   }
 
-  addWorker (fun) {
+  /**
+   *
+   * @param {{
+   *     stdout?: object,
+   *     stderr?: object,
+   *     handler?: string,
+   *     entry: string,
+   *     httpPath: string
+   * }} info
+   * @returns {FunctionInfo}
+   */
+  addWorker (info) {
     const opts = {
       env: this.env,
       runtime: 'nodejs:12.x',
-      stdout: fun.stdout,
-      stderr: fun.stderr,
+      stdout: info.stdout,
+      stderr: info.stderr,
       tmp: this._tmp,
-      handler: fun.handler,
-      entry: fun.entry
+      handler: info.handler,
+      entry: info.entry
     }
 
-    fun.worker = this.docker
-      ? new DockerWorker(opts)
-      : new ChildProcessWorker(opts)
+    const fun = {
+      worker: new ChildProcessWorker(opts),
+      path: info.httpPath
+    }
+
     this.functions.push(fun)
     return fun
   }
@@ -217,49 +203,60 @@ class FakeApiGatewayLambda {
   /**
    * @returns {Promise<void>}
    */
+  async close () {
+    if (this.httpServer) {
+      await util.promisify((cb) => {
+        this.httpServer.close(() => {
+          cb(null, null)
+        })
+      })()
+      this.httpServer = null
+    }
+
+    if (this.httpsServer) {
+      await util.promisify((cb) => {
+        this.httpsServer.close(() => {
+          cb(null, null)
+        })
+      })()
+      this.httpsServer = null
+    }
+
+    await Promise.all(this.functions.map(f => {
+      return f.worker.close()
+    }))
+  }
+
   /**
    * @param {string} id
    * @param {object} eventObject
    * @returns {Promise<object>}
    */
-  async dispatch (id, eventObject) {
+  async _dispatch (id, eventObject) {
     const url = new URL(eventObject.path, 'http://localhost:80')
 
     const matched = matchRoute(this.functions, url.pathname)
-    if (matched) { return matched.worker.request(id, eventObject) } else {
-      return new Promise((resolve) => {
-        resolve({
-          isBase64Encoded: false,
-          statusCode: 403, // the real api-gateway does a 403.
-          headers: {},
-          body: JSON.stringify({ message: 'Forbidden' }),
-          multiValueHeaders: {}
-        })
-      })
+    if (matched) {
+      return matched.worker.request(id, eventObject)
+    } else {
+      return {
+        isBase64Encoded: false,
+        statusCode: 403, // the real api-gateway does a 403.
+        headers: {},
+        body: JSON.stringify({ message: 'Forbidden' }),
+        multiValueHeaders: {}
+      }
     }
+
     // before, the error didn't happen until it got to the worker,
     // but now the worker only has one lambda so it's here now.
-  }
-
-  async close () {
-    const close = (server) => {
-      return server && util.promisify((cb) => { server.close(() => { cb(null, null) }) })()
-    }
-
-    await Promise.all([
-      close(this.httpServer),
-      close(this.httpsServer),
-      Promise.all(this.functions.map(f => f.worker.close()))
-    ])
-
-    this.httpServer = this.httpsServer = null
   }
 
   /**
    * @param {string} id
    * @returns {any}
    */
-  hasPendingRequest (id) {
+  _hasPendingRequest (id) {
     return this.pendingRequests.has(id)
   }
 
@@ -268,7 +265,7 @@ class FakeApiGatewayLambda {
    * @param {LambdaResult} result
    * @returns {void}
    */
-  handleLambdaResult (id, result) {
+  _handleLambdaResult (id, result) {
     const pending = this.pendingRequests.get(id)
     if (!pending) {
       /**
@@ -304,7 +301,7 @@ class FakeApiGatewayLambda {
    * @param {http.ServerResponse} res
    * @returns {void}
    */
-  handleServerRequest (
+  _handleServerRequest (
     req,
     res
   ) {
@@ -322,6 +319,7 @@ class FakeApiGatewayLambda {
                     'Content-Type, Accept, Authorization'
       )
     }
+
     if (this.enableCors && req.method === 'OPTIONS') {
       res.end()
       return
@@ -359,14 +357,6 @@ class FakeApiGatewayLambda {
       body += chunk.toString()
     })
     req.on('end', () => {
-      /**
-       * @raynos TODO: Need to identify what concrete value
-       * to use for `event.resource` and for `event.pathParameters`
-       * since these are based on actual configuration in AWS
-       * API Gateway. Maybe these should come from the `routes`
-       * options object itself
-       */
-
       const eventObject = {
         resource: '/{proxy+}',
         path: req.url ? req.url : '/',
@@ -384,48 +374,44 @@ class FakeApiGatewayLambda {
         isBase64Encoded: false
       }
 
-      if (this.populateRequestContext) {
-        const reqContext = this.populateRequestContext(eventObject)
-
-        if (reqContext && typeof reqContext.then === 'function') {
-          reqContext.then(context => {
-            eventObject.requestContext = context
-            process.nextTick(() => { doDispatch.call(this) })
-          }).catch(err => {
-            process.nextTick(() => { throw err })
-          })
-        } else {
-          eventObject.requestContext = reqContext
-          doDispatch.call(this)
-        }
-      } else {
-        doDispatch.call(this)
-      }
-
-      function doDispatch () {
-        const id = cuuid()
-        this.pendingRequests.set(id, { req, res, id })
-        this.dispatch(id, eventObject).then(result => {
-          this.handleLambdaResult(id, result)
-        }).catch(err => {
-          this.handleLambdaResult(id, {
-            statusCode: 500,
-            headers: {},
-            body: JSON.stringify({
-              message: err.message,
-              stack: err.error.split('\n')
-            }, null, 2)
-          })
-        })
-      }
+      this._dispatchPayload(req, res, eventObject)
     })
   }
 
-  /**
-   * @param {string} id
-   * @param {object} eventObject
-   * @returns {void}
-   */
+  async _dispatchPayload (req, res, eventObject) {
+    /**
+     * @raynos TODO: Need to identify what concrete value
+     * to use for `event.resource` and for `event.pathParameters`
+     * since these are based on actual configuration in AWS
+     * API Gateway. Maybe these should come from the `routes`
+     * options object itself
+     */
+    if (this.populateRequestContext) {
+      const reqContext = await this.populateRequestContext(eventObject)
+      eventObject.requestContext = reqContext
+    }
+
+    const id = cuuid()
+    this.pendingRequests.set(id, { req, res, id })
+
+    let lambdaResult
+    try {
+      lambdaResult = await this._dispatch(id, eventObject)
+    } catch (err) {
+      this._handleLambdaResult(id, {
+        statusCode: 500,
+        isBase64Encoded: false,
+        headers: {},
+        body: JSON.stringify({
+          message: err.message,
+          stack: err.error.split('\n')
+        }, null, 2)
+      })
+      return
+    }
+
+    this._handleLambdaResult(id, lambdaResult)
+  }
 }
 
 exports.FakeApiGatewayLambda = FakeApiGatewayLambda

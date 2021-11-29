@@ -1,7 +1,6 @@
 // @ts-check
 'use strict'
 
-const util = require('./util')
 const _path = require('path')
 const events = require('events')
 const fs = require('fs')
@@ -139,7 +138,7 @@ class DockerLambda {
 
     const proc = this.proc = logCmd(this.bin, args)
 
-    util.pipeStdio(proc, { stdout: this.stdout, stderr: this.stderr })
+    pipeStdio(proc, { stdout: this.stdout, stderr: this.stderr })
 
     await dockerLambdaReady(this.port)
   }
@@ -183,3 +182,23 @@ class DockerLambda {
 }
 
 module.exports = DockerLambda
+
+function invokeUnref (arg) {
+  const obj = /** @type {null | { unref: unknown }} */ (arg)
+  if (obj && obj.unref && typeof obj.unref === 'function') {
+    obj.unref()
+  }
+  return arg
+}
+
+function maybePipe (source, dest) {
+  if (source) {
+    invokeUnref(source)
+    source.pipe(dest, { end: false })
+  }
+}
+
+function pipeStdio (proc, stdio) {
+  maybePipe(proc.stdout, stdio.stdout || process.stdout)
+  maybePipe(proc.stderr, stdio.stderr || process.stderr)
+}
