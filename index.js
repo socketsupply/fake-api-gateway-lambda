@@ -570,6 +570,10 @@ function matchRoute (functions, pathname) {
   // what if a path has more than one pattern element?
   return functions.find(fun => {
     const route = fun.path
+    if (!route) {
+      return false
+    }
+
     const isPattern = route.endsWith('+}')
 
     if (!isPattern && pathname === route) {
