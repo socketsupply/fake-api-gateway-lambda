@@ -5,6 +5,7 @@ const http = require('http')
 const https = require('https')
 const util = require('util')
 const url = require('url')
+const assert = require('assert')
 const URL = require('url').URL
 
 const ChildProcessWorker = require('./child-process-worker')
@@ -167,7 +168,9 @@ class FakeApiGatewayLambda {
   }
 
   hasWorker (httpPath) {
-    return !!this.functions[httpPath]
+    return Object.values(this.functions).some((f) => {
+      return f.path === httpPath
+    })
   }
 
   /**
@@ -177,12 +180,15 @@ class FakeApiGatewayLambda {
    *     handler?: string,
    *     env?: Record<string, string>,
    *     entry: string,
+   *     functionName: string,
    *     runtime?: string
    *     httpPath: string
    * }} info
    * @returns {FunctionInfo}
    */
   updateWorker (info) {
+    assert(info.functionName, 'functionName required')
+
     const opts = {
       env: info.env,
       runtime: info.runtime || 'nodejs:12.x',
@@ -198,7 +204,7 @@ class FakeApiGatewayLambda {
       path: info.httpPath
     }
 
-    this.functions[info.httpPath] = fun
+    this.functions[info.functionName] = fun
     return fun
   }
 
@@ -237,7 +243,8 @@ class FakeApiGatewayLambda {
   async _dispatch (id, eventObject) {
     const url = new URL(eventObject.path, 'http://localhost:80')
 
-    const matched = matchRoute(this.functions, url.pathname)
+    const functions = Object.values(this.functions)
+    const matched = matchRoute(functions, url.pathname)
     if (matched) {
       return matched.worker.request(id, eventObject)
     } else {
@@ -332,6 +339,11 @@ class FakeApiGatewayLambda {
     // eslint-disable-next-line node/no-deprecated-api
     const uriObj = url.parse(reqUrl, true)
 
+    if (reqUrl === '/___FAKE_API_GATEWAY_LAMBDA___RAW___') {
+      this._dispatchRaw(req, uriObj, res)
+      return
+    }
+
     // if a referer header is present,
     // check that the request is from a page we hosted
     // otherwise, the request could be a locally open web page.
@@ -377,6 +389,50 @@ class FakeApiGatewayLambda {
       }
 
       this._dispatchPayload(req, res, eventObject)
+    })
+  }
+
+  async _dispatchRaw (req, uriObj, res) {
+    const functionName = uriObj.query.functionName
+
+    const func = this.functions[functionName]
+    if (!func) {
+      res.statusCode = 404
+      return res.end(JSON.stringify({
+        message: `Not Found (${functionName})`
+      }))
+    }
+
+    // get req body
+    let body = ''
+    req.on('data', (/** @type {Buffer} */ chunk) => {
+      body += chunk.toString()
+    })
+    req.once('end', async () => {
+      const eventObject = JSON.parse(body)
+
+      const id = cuuid()
+
+      let result
+      try {
+        result = await func.worker.request(id, eventObject)
+      } catch (err) {
+        const str = JSON.stringify({
+          message: err.message,
+          stack: err.errorString
+            ? err.errorString.split('\n')
+            : undefined
+        }, null, 2)
+
+        res.statusCode = 500
+        res.setHeader('Content-Type', 'application/json')
+        res.end(str)
+        return
+      }
+
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify(result))
     })
   }
 
@@ -506,13 +562,11 @@ function cuuid () {
 }
 
 /**
- * @param {Record<string, FunctionInfo>} functionsDict
+ * @param {FunctionInfo[]} functions
  * @param {string} pathname
  * @returns {FunctionInfo | null}
  */
-function matchRoute (functionsDict, pathname) {
-  const functions = Object.values(functionsDict)
-
+function matchRoute (functions, pathname) {
   // what if a path has more than one pattern element?
   return functions.find(fun => {
     const route = fun.path

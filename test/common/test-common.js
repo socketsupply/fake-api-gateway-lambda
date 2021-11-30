@@ -27,6 +27,7 @@ class TestCommon {
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.py'),
       env: env,
+      functionName: 'python_lambda',
       httpPath: '/python',
       handler: 'lambda_handler',
       runtime: 'python3.9'
@@ -35,16 +36,19 @@ class TestCommon {
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.js'),
       env: env,
+      functionName: 'hello_node_lambda',
       httpPath: '/hello'
     })
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
       env: env,
+      functionName: 'syntax_node_lambda',
       httpPath: '/syntax'
     })
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'runtime-error.js'),
       env: env,
+      functionName: 'runtime_error_node-lambda',
       httpPath: '/runtime'
     })
   }
