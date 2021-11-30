@@ -70,7 +70,7 @@ class LambdaWorker {
         return
       }
 
-      this.invokeLambda(id, eventObject)
+      this.invokeLambda(id, eventObject, objMsg.raw)
     } else {
       bail('bad data type from parent process: unknown')
     }
@@ -81,7 +81,7 @@ class LambdaWorker {
    * @param {Record<string, unknown>} eventObject
    * @returns {void}
    */
-  invokeLambda (id, eventObject) {
+  invokeLambda (id, eventObject, raw) {
     /**
      * @raynos TODO: We have to populate the lambda eventObject
      * here and we have not done so at all.
@@ -103,12 +103,12 @@ class LambdaWorker {
         return
       }
 
-      this.sendResult(id, result)
+      this.sendResult(id, result, raw)
     })
 
     if (maybePromise) {
       maybePromise.then((result) => {
-        this.sendResult(id, result)
+        this.sendResult(id, result, raw)
       }, (/** @type {Error} */ err) => {
         this.sendError(id, err)
       })
@@ -140,11 +140,11 @@ class LambdaWorker {
    * @param {LambdaResult} result
    * @returns {void}
    */
-  sendResult (id, result) {
+  sendResult (id, result, raw) {
     const msg = JSON.stringify({
       message: 'result',
       id,
-      result: {
+      result: raw ? result : {
         isBase64Encoded: result.isBase64Encoded || false,
         statusCode: result.statusCode,
         headers: result.headers || {},

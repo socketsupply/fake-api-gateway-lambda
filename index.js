@@ -339,7 +339,7 @@ class FakeApiGatewayLambda {
     // eslint-disable-next-line node/no-deprecated-api
     const uriObj = url.parse(reqUrl, true)
 
-    if (reqUrl === '/___FAKE_API_GATEWAY_LAMBDA___RAW___') {
+    if (reqUrl.startsWith('/___FAKE_API_GATEWAY_LAMBDA___RAW___')) {
       this._dispatchRaw(req, uriObj, res)
       return
     }
@@ -415,7 +415,7 @@ class FakeApiGatewayLambda {
 
       let result
       try {
-        result = await func.worker.request(id, eventObject)
+        result = await func.worker.request(id, eventObject, true)
       } catch (err) {
         const str = JSON.stringify({
           message: err.message,

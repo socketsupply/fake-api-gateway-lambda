@@ -112,7 +112,7 @@ class ChildProcessWorker {
     })
   }
 
-  request (id, eventObject) {
+  request (id, eventObject, raw) {
     this.latestId = id
     this.stdout.write(
       `START\tRequestId:${id}\tVersion:$LATEST\n`
@@ -195,7 +195,8 @@ class ChildProcessWorker {
       proc.stdin.write(JSON.stringify({
         message: 'event',
         id,
-        eventObject
+        eventObject,
+        raw: !!raw
       }) + '\n')
       process.stdin.end()
     })
@@ -217,9 +218,9 @@ class ChildProcessWorker {
     }
 
     const resultObj = msg.result
-    if (!checkResult(resultObj)) {
-      throw new Error('missing result from child process:' + msg.result)
-    }
+    // if (!checkResult(resultObj)) {
+    //   throw new Error('missing result from child process:' + msg.result)
+    // }
 
     const duration = Date.now() - start
 
@@ -239,36 +240,6 @@ class ChildProcessWorker {
     this.procs.forEach(v => v.kill(0))
     this.procs = []
   }
-}
-
-/**
- * @param {unknown} v
- */
-function checkResult (v) {
-  if (typeof v !== 'object' || !v) {
-    return false
-  }
-
-  const objValue = v
-  if (typeof Reflect.get(objValue, 'isBase64Encoded') !== 'boolean') {
-    return false
-  }
-  if (typeof Reflect.get(objValue, 'statusCode') !== 'number') {
-    return false
-  }
-  if (typeof Reflect.get(objValue, 'headers') !== 'object') {
-    return false
-  }
-
-  const mvHeaders = /** @type {unknown} */ (Reflect.get(objValue, 'multiValueHeaders'))
-  if (mvHeaders && typeof mvHeaders !== 'object') {
-    return false
-  }
-  if (typeof Reflect.get(objValue, 'body') !== 'string') {
-    return false
-  }
-
-  return true
 }
 
 module.exports = ChildProcessWorker
