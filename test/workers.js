@@ -238,3 +238,24 @@ test('calling python handler', async (t) => {
     await common.close()
   }
 })
+
+test('Calling a raw lambda', async (t) => {
+  const common = await TestCommon.create()
+
+  try {
+    const url = '/___FAKE_API_GATEWAY_LAMBDA___RAW___?' +
+      'functionName=malformed_node-lambda'
+
+    const res = await common.fetch(url, {
+      method: 'POST',
+      body: '{}'
+    })
+    t.equal(res.status, 200, '/raw invoke returns 200')
+
+    const b = await res.text()
+    t.equal(b, '"Invalid Non HTTP response string"',
+      'body from raw lambda is correct')
+  } finally {
+    await common.close()
+  }
+})
