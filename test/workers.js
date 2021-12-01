@@ -13,10 +13,11 @@ test('calling /hello with ENV vars 1', async (t) => {
 
   try {
     const res = await common.fetch('/hello')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/hello returns 200')
 
     const b = await res.text()
-    t.equal(b, 'Hello, TEST_ENV_1!')
+    t.equal(b, 'Hello, TEST_ENV_1!',
+      '/hello can read the environment variable')
   } finally {
     await common.close()
   }
@@ -31,10 +32,10 @@ test('calling /hello with requestContext sync', async (t) => {
 
   try {
     const res = await common.fetch('/hello')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/hello returns 200')
 
     const b = await res.text()
-    t.equal(b, 'Hello, Timothy!')
+    t.equal(b, 'Hello, Timothy!', '/hello can read the requestContext')
   } finally {
     await common.close()
   }
@@ -42,17 +43,17 @@ test('calling /hello with requestContext sync', async (t) => {
 
 test('calling /hello with requestContext async', async (t) => {
   const common = await TestCommon.create({
-    requestContext: () => {
+    requestContext: async () => {
       return { greeter: 'Timothy' }
     }
   })
 
   try {
     const res = await common.fetch('/hello')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/hello returns 200')
 
     const b = await res.text()
-    t.equal(b, 'Hello, Timothy!')
+    t.equal(b, 'Hello, Timothy!', '/hello works with async requestContext')
   } finally {
     await common.close()
   }
@@ -65,10 +66,10 @@ test('calling /hello with ENV vars 2', async (t) => {
 
   try {
     const res = await common.fetch('/hello')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/hello returns 200')
 
     const b = await res.text()
-    t.equal(b, 'Hello, TEST_ENV_2!')
+    t.equal(b, 'Hello, TEST_ENV_2!', '/hello can read env variables')
   } finally {
     await common.close()
   }
@@ -78,10 +79,10 @@ test('calling /hello', async (t) => {
   const common = await TestCommon.create()
   try {
     const res = await common.fetch('/hello')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/hello returns 200')
 
     const b = await res.text()
-    t.equal(b, 'Hello, World!')
+    t.equal(b, 'Hello, World!', '/hello returns default payload')
   } finally {
     await common.close()
   }
@@ -93,10 +94,10 @@ test('calling /hello many times', async (t) => {
   try {
     for (let i = 0; i < 5; i++) {
       const res = await common.fetch('/hello')
-      t.equal(res.status, 200)
+      t.equal(res.status, 200, '/hello returns 200 multiple times')
 
       const b = await res.text()
-      t.equal(b, 'Hello, World!')
+      t.equal(b, 'Hello, World!', '/hello returns body multiple times')
     }
   } finally {
     await common.close()
@@ -115,10 +116,10 @@ test('calling /hello many times in parallel', async (t) => {
 
     const responses = await Promise.all(tasks)
     for (const res of responses) {
-      t.equal(res.status, 200)
+      t.equal(res.status, 200, '/hello returns 200 in parallel')
 
       const b = await res.text()
-      t.equal(b, 'Hello, World!')
+      t.equal(b, 'Hello, World!', '/hello returns body in parallel')
     }
   } finally {
     await common.close()
@@ -133,16 +134,16 @@ test('calling /hello with different args', async (t) => {
       method: 'POST',
       body: JSON.stringify({ greeter: 'James' })
     })
-    t.equal(res1.status, 200)
+    t.equal(res1.status, 200, '/hello with http body returns 200')
 
     const b1 = await res1.text()
-    t.equal(b1, 'Hello, James!')
+    t.equal(b1, 'Hello, James!', '/hello can read http body')
 
     const res2 = await common.fetch('/hello?greeter=Bob')
-    t.equal(res2.status, 200)
+    t.equal(res2.status, 200, '/hello with query string returns 200')
 
     const b2 = await res2.text()
-    t.equal(b2, 'Hello, Bob!')
+    t.equal(b2, 'Hello, Bob!', '/hello can read querystring')
 
     const res3 = await common.fetch('/hello', {
       headers: [
@@ -150,20 +151,21 @@ test('calling /hello with different args', async (t) => {
         ['greeter', 'Tim']
       ]
     })
-    t.equal(res3.status, 200)
+    t.equal(res3.status, 200, '/hello with custom headers returns 200')
 
     const b3 = await res3.text()
-    t.equal(b3, 'Hello, Charles and Tim!')
+    t.equal(b3, 'Hello, Charles and Tim!',
+      '/hello can read custom headers')
 
     const res4 = await common.fetch('/hello', {
       headers: {
         greeter: 'Alice'
       }
     })
-    t.equal(res4.status, 200)
+    t.equal(res4.status, 200, '/hello can read single header')
 
     const b4 = await res4.text()
-    t.equal(b4, 'Hello, Alice!')
+    t.equal(b4, 'Hello, Alice!', '/hello body reads header value')
   } finally {
     await common.close()
   }
@@ -174,10 +176,10 @@ test('calling not found endpoint', async (t) => {
 
   try {
     const res = await common.fetch('/foo')
-    t.equal(res.status, 403)
+    t.equal(res.status, 403, 'random URL returns 403 instead of 404')
 
     const b = await res.text()
-    t.equal(b, '{"message":"Forbidden"}')
+    t.equal(b, '{"message":"Forbidden"}', '403 body is correct')
   } finally {
     await common.close()
   }
@@ -193,7 +195,7 @@ test('adding a lambda worker later', async (t) => {
       entry: path.join(__dirname, 'lambdas', 'hello.js')
     })
     const res = await common.fetch('/foo')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/foo returns 200 after updateWorker()')
   } finally {
     await common.close()
   }
@@ -216,7 +218,7 @@ test('calling changePort', async (t) => {
       'the hostPort has changed')
 
     const res = await common.fetch('/foo')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/foo works with new port')
   } finally {
     await common.close()
   }
@@ -227,10 +229,11 @@ test('calling python handler', async (t) => {
 
   try {
     const res = await common.fetch('/python')
-    t.equal(res.status, 200)
+    t.equal(res.status, 200, '/python returns 200')
 
     const b = await res.text()
-    t.equal(b, '"Hello from Lambda! (python)"')
+    t.equal(b, '"Hello from Lambda! (python)"',
+      'body from python is correct')
   } finally {
     await common.close()
   }

@@ -455,6 +455,10 @@ class FakeApiGatewayLambda {
     let lambdaResult
     try {
       lambdaResult = await this._dispatch(id, eventObject)
+      const isValid = checkResult(lambdaResult)
+      if (!isValid) {
+        throw new Error('Lambda returned invalid HTTP result')
+      }
     } catch (err) {
       this._handleLambdaResult(id, {
         statusCode: 500,
@@ -593,4 +597,34 @@ function matchRoute (functions, pathname) {
     }
     return false
   })
+}
+
+/**
+ * @param {unknown} v
+ */
+function checkResult (v) {
+  if (typeof v !== 'object' || !v) {
+    return false
+  }
+
+  const objValue = v
+  if (typeof Reflect.get(objValue, 'isBase64Encoded') !== 'boolean') {
+    return false
+  }
+  if (typeof Reflect.get(objValue, 'statusCode') !== 'number') {
+    return false
+  }
+  if (typeof Reflect.get(objValue, 'headers') !== 'object') {
+    return false
+  }
+
+  const mvHeaders = /** @type {unknown} */ (Reflect.get(objValue, 'multiValueHeaders'))
+  if (mvHeaders && typeof mvHeaders !== 'object') {
+    return false
+  }
+  if (typeof Reflect.get(objValue, 'body') !== 'string') {
+    return false
+  }
+
+  return true
 }

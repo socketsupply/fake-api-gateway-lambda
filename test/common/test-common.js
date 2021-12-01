@@ -51,6 +51,12 @@ class TestCommon {
       functionName: 'runtime_error_node-lambda',
       httpPath: '/runtime'
     })
+    this.lambda.updateWorker({
+      entry: path.join(__dirname, '..', 'lambdas', 'malformed.js'),
+      env: env,
+      functionName: 'malformed_node-lambda',
+      httpPath: '/malformed'
+    })
   }
 
   /**
