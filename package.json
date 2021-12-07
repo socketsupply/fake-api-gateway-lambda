@@ -21,6 +21,11 @@
     "npm-bin-deps": "1.10.1",
     "tapzero": "0.6.1"
   },
+  "standard": {
+    "ignore": [
+      "workers/go-worker-txt.js"
+    ]
+  },
   "author": "Raynos <raynos2@gmail.com>",
   "repository": "git://github.com/Raynos/fake-api-gateway-lambda.git",
   "homepage": "https://github.com/Raynos/fake-api-gateway-lambda",

@@ -9,10 +9,9 @@ requests to your lambda function using Lambda proxy integration.
 ## Example
 
 ```js
-const path = require('path')
-const FakeApiGatewayLambda =
-  require('fake-api-gateway-lambda').FakeApiGatewayLambda
+const { FakeApiGatewayLambda } = require('fake-api-gateway-lambda')
 const fetch = require('node-fetch')
+const path = require('path')
 
 async function test() {
   const gateway = new FakeApiGatewayLambda({

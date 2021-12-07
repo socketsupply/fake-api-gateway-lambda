@@ -6,3 +6,4 @@ node_modules
 .nyc_output
 .vscode
 __pycache__/
+go.sum

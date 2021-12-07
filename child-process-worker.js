@@ -9,18 +9,24 @@ const os = require('os')
 const tmp = os.tmpdir()
 
 const JS_WORKER_TXT = require('./workers/js-worker-txt.js')
+const GO_WORKER_TXT = require('./workers/go-worker-txt.js')
 const PY_WORKER_TXT = require('./workers/py-worker-txt.js')
 
 const WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.js`
+const GO_WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.go`
 const PYTHON_WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.py`
 
 try {
   fs.mkdirSync(path.dirname(WORKER_PATH), { recursive: true })
   fs.writeFileSync(WORKER_PATH, JS_WORKER_TXT)
+
+  fs.mkdirSync(path.dirname(GO_WORKER_PATH), { recursive: true })
+  fs.writeFileSync(GO_WORKER_PATH, GO_WORKER_TXT)
+
   fs.mkdirSync(path.dirname(PYTHON_WORKER_PATH), { recursive: true })
   fs.writeFileSync(PYTHON_WORKER_PATH, PY_WORKER_TXT)
 } catch (err) {
-  console.error('Could not copy worker.js/py into tmp', err)
+  console.error('Could not copy worker.{js,py,go} into tmp', err)
 }
 
 class ChildProcessWorker {
@@ -122,7 +128,7 @@ class ChildProcessWorker {
     return new Promise((resolve, reject) => {
       let proc
 
-      if (this.runtime === 'nodejs:12.x') {
+      if (/node(js):?(12|14|16)/.test(this.runtime)) {
         proc = childProcess.spawn(
           process.execPath,
           [WORKER_PATH, this.entry, this.handler],
@@ -132,7 +138,7 @@ class ChildProcessWorker {
             env: this.env
           }
         )
-      } else if (this.runtime === 'python3.9') {
+      } else if (/python:?(3)/.test(this.runtime)) {
         proc = childProcess.spawn(
           'python3',
           [PYTHON_WORKER_PATH, this.entry, this.handler],
@@ -141,6 +147,24 @@ class ChildProcessWorker {
             detached: false,
             shell: true,
             env: this.env
+          }
+        )
+      } else if (/go:?(1)/.test(this.runtime)) {
+        proc = childProcess.spawn(
+          'go',
+          ['run', GO_WORKER_PATH, '-p', '8888', '-P', this.entry],
+          {
+            // stdio: 'inherit',
+            detached: false,
+            shell: true,
+            cwd: path.dirname(GO_WORKER_PATH),
+            env: {
+              GOCACHE: `${tmp}/fake-api-gateway-lambda/go-build`,
+              GOROOT: process.env.GOROOT,
+              GOPATH: process.env.GOPATH,
+              PATH: process.env.PATH,
+              ...this.env
+            }
           }
         )
       }

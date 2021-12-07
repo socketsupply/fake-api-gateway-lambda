@@ -239,6 +239,21 @@ test('calling python handler', async (t) => {
   }
 })
 
+test('calling go handler', async (t) => {
+  const common = await TestCommon.create()
+
+  try {
+    const res = await common.fetch('/go')
+    t.equal(res.status, 200, '/go returns 200')
+
+    const b = await res.text()
+    t.equal(b, 'Hello from Lambda! (go)',
+      'body from go is correct')
+  } finally {
+    await common.close()
+  }
+})
+
 test('Calling a raw lambda', async (t) => {
   const common = await TestCommon.create()
 
