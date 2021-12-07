@@ -1,8 +1,9 @@
 // @ts-check
 'use strict'
 
-const path = require('path')
+const { spawnSync } = require('child_process')
 const fetch = require('node-fetch').default
+const path = require('path')
 
 const { FakeApiGatewayLambda } = require('../../index.js')
 
@@ -24,6 +25,10 @@ class TestCommon {
       populateRequestContext: options && options.requestContext
     })
 
+    spawnSync('go', ['get'], {
+      cwd: path.join(__dirname, '..', 'lambdas', 'go')
+    })
+
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.py'),
       env: env,
@@ -34,23 +39,34 @@ class TestCommon {
     })
 
     this.lambda.updateWorker({
+      entry: path.join(__dirname, '..', 'lambdas', 'go', 'hello.go'),
+      env: env,
+      functionName: 'go_lambda',
+      httpPath: '/go',
+      runtime: 'go:1.16'
+    })
+
+    this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.js'),
       env: env,
       functionName: 'hello_node_lambda',
       httpPath: '/hello'
     })
+
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
       env: env,
       functionName: 'syntax_node_lambda',
       httpPath: '/syntax'
     })
+
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'runtime-error.js'),
       env: env,
       functionName: 'runtime_error_node-lambda',
       httpPath: '/runtime'
     })
+
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'malformed.js'),
       env: env,
