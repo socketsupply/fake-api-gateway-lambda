@@ -246,6 +246,7 @@ class FakeApiGatewayLambda {
     const functions = Object.values(this.functions)
     const matched = matchRoute(functions, url.pathname)
     if (matched) {
+      eventObject.resource = matched.path
       return matched.worker.request(id, eventObject)
     } else {
       return {
@@ -372,7 +373,7 @@ class FakeApiGatewayLambda {
     })
     req.on('end', () => {
       const eventObject = {
-        resource: '/{proxy+}',
+        resource: null,
         path: req.url ? req.url : '/',
         httpMethod: req.method ? req.method : 'GET',
         headers: flattenHeaders(req.rawHeaders),
@@ -578,24 +579,34 @@ function matchRoute (functions, pathname) {
       return false
     }
 
-    const isPattern = route.endsWith('+}')
+    const routeSegments = route.split('/').slice(1)
+    const pathSegments = pathname.split('/').slice(1)
 
-    if (!isPattern && pathname === route) {
-      return true
+    const endsInGlob = route.endsWith('+}')
+
+    if (
+      !endsInGlob &&
+      routeSegments.length !== pathSegments.length
+    ) {
+      return false
     }
 
-    if (isPattern) {
-      const braceStart = route.lastIndexOf('{')
-      const exactPrefix = route.slice(0, braceStart)
+    for (let i = 0; i < routeSegments.length; i++) {
+      const routeSegment = routeSegments[i]
+      const pathSegment = pathSegments[i]
 
-      if (
-        pathname.startsWith(exactPrefix) &&
-        pathname !== exactPrefix
-      ) {
-        return true
+      if (!pathSegment) {
+        return false
+      }
+
+      if (!routeSegment.startsWith('{')) {
+        if (routeSegment !== pathSegment) {
+          return false
+        }
       }
     }
-    return false
+
+    return true
   })
 }
 
