@@ -12,7 +12,7 @@ type HelloResponse struct {
   Body string `json:"body"`
 }
 
-func RequestHandler(ctx context.Context) (HelloResponse, error) {
+func RequestHandler (ctx context.Context) (HelloResponse, error) {
   return HelloResponse {
     StatusCode: 200,
     Body: "Hello from Lambda! (go)",
