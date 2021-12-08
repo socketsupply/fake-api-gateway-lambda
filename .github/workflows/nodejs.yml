@@ -21,3 +21,5 @@ jobs:
       run: npm install && ./node_modules/.bin/npr which tsdocstandard
     - name: npm test
       run: npm test
+      env:
+        GOPATH: /home/runner/work/operatortc/fake-api-gateway-lambda
