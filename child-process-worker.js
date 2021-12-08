@@ -159,9 +159,9 @@ class ChildProcessWorker {
             shell: true,
             cwd: path.dirname(GO_WORKER_PATH),
             env: {
-              GOCACHE: `${tmp}/fake-api-gateway-lambda/go-build`,
               GOROOT: process.env.GOROOT,
               GOPATH: process.env.GOPATH,
+              HOME: process.env.HOME,
               PATH: process.env.PATH,
               ...this.env
             }
