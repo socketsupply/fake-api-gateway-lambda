@@ -1,8 +1,9 @@
 // @ts-check
 'use strict'
 
-const path = require('path')
+const { PassThrough } = require('stream')
 const { test } = require('tapzero')
+const path = require('path')
 
 const TestCommon = require('./common/test-common.js')
 
@@ -77,12 +78,21 @@ test('calling /hello with ENV vars 2', async (t) => {
 
 test('calling /hello', async (t) => {
   const common = await TestCommon.create()
+  const output = []
+  const info = common.lambda.functions.hello_node_lambda
+
+  info.worker.stdout = new PassThrough()
+  info.worker.stdout.on('data', (data) => output.push(data))
+
   try {
     const res = await common.fetch('/hello')
     t.equal(res.status, 200, '/hello returns 200')
 
     const b = await res.text()
     t.equal(b, 'Hello, World!', '/hello returns default payload')
+
+    t.ok(output.join('\n').includes('INFO js hello'),
+      'logs from js lambda are correct')
   } finally {
     await common.close()
   }
@@ -226,6 +236,11 @@ test('calling changePort', async (t) => {
 
 test('calling python handler', async (t) => {
   const common = await TestCommon.create()
+  const output = []
+  const info = common.lambda.functions.python_lambda
+
+  info.worker.stdout = new PassThrough()
+  info.worker.stdout.on('data', (data) => output.push(data))
 
   try {
     const res = await common.fetch('/python')
@@ -234,6 +249,9 @@ test('calling python handler', async (t) => {
     const b = await res.text()
     t.equal(b, '"Hello from Lambda! (python)"',
       'body from python is correct')
+
+    t.ok(output.join('\n').includes('INFO python hello'),
+      'logs from python lambda are correct')
   } finally {
     await common.close()
   }
@@ -241,6 +259,11 @@ test('calling python handler', async (t) => {
 
 test('calling go handler', async (t) => {
   const common = await TestCommon.create()
+  const output = []
+  const info = common.lambda.functions.go_lambda
+
+  info.worker.stdout = new PassThrough()
+  info.worker.stdout.on('data', (data) => output.push(data))
 
   try {
     const res = await common.fetch('/go')
@@ -249,6 +272,9 @@ test('calling go handler', async (t) => {
     const b = await res.text()
     t.equal(b, 'Hello from Lambda! (go)',
       'body from go is correct')
+
+    t.ok(output.join('\n').includes('INFO hello from lambda'),
+      'logs from go lambda are correct')
   } finally {
     await common.close()
   }
