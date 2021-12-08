@@ -152,7 +152,7 @@ class ChildProcessWorker {
       } else if (/go:?(1)/.test(this.runtime)) {
         proc = childProcess.spawn(
           'go',
-          ['run', GO_WORKER_PATH, '-p', '8888', '-P', this.entry],
+          ['run', GO_WORKER_PATH, '-p', '0', '-P', this.entry],
           {
             // stdio: 'inherit',
             detached: false,
