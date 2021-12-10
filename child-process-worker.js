@@ -198,12 +198,12 @@ class ChildProcessWorker {
           //        var err = new Error()
           //        err.message = error.split('\n')[0]
           //        err.stack = error.split('\n').slice(1).join('\n')
-          const lambdaError = {
-            errorType: 'Error',
-            errorMessage: 'Error',
-            stack: errorString.split('\n')
-          }
-          this.stdout.write(`${new Date(start).toISOString()}\tundefined\tERROR\t${JSON.stringify(lambdaError)}\n`)
+          // const lambdaError = {
+          //   errorType: 'Error',
+          //   errorMessage: 'Error',
+          //   stack: errorString.split('\n')
+          // }
+          // this.stdout.write(`${new Date(start).toISOString()}\tundefined\tERROR\t${JSON.stringify(lambdaError)}\n`)
 
           const err = new Error('Internal Server Error')
           Reflect.set(err, 'errorString', errorString)
