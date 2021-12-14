@@ -292,7 +292,7 @@ class FakeApiGatewayLambda {
     const res = pending.res
     res.statusCode = result.statusCode
 
-    for (const key of Object.keys(result.headers)) {
+    for (const key of Object.keys(result.headers || {})) {
       res.setHeader(key, result.headers[key])
     }
     if (result.multiValueHeaders) {
