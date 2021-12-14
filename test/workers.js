@@ -201,6 +201,8 @@ test('adding a lambda worker later', async (t) => {
   try {
     common.lambda.updateWorker({
       httpPath: '/foo',
+      runtime: 'nodejs:12.x',
+      handler: 'hello.handler',
       functionName: 'hello_node_lambda',
       entry: path.join(__dirname, 'lambdas', 'hello.js')
     })
@@ -217,6 +219,8 @@ test('calling changePort', async (t) => {
   try {
     common.lambda.updateWorker({
       httpPath: '/foo',
+      runtime: 'nodejs:12.x',
+      handler: 'hello.handler',
       functionName: 'hello_node_lambda',
       entry: path.join(__dirname, 'lambdas', 'hello.js')
     })

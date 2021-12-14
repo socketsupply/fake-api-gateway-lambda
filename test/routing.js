@@ -68,7 +68,9 @@ test('calling different routes', async (t) => {
     let counter = 0
     for (const httpPath of httpPaths) {
       common.lambda.updateWorker({
+        runtime: 'nodejs:12.x',
         httpPath: httpPath,
+        handler: 'echo.handler',
         functionName: `_temp_${++counter}`,
         entry: path.join(__dirname, 'lambdas', 'echo.js')
       })

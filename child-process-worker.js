@@ -2,6 +2,7 @@
 'use strict'
 
 const childProcess = require('child_process')
+const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
@@ -41,6 +42,10 @@ class ChildProcessWorker {
    * }} options
    */
   constructor (options) {
+    assert(options.handler, 'options.handler required')
+    assert(options.runtime, 'options.runtime required')
+    assert(options.entry, 'options.entry required')
+
     this.responses = {}
     this.procs = []
     this.stdout = options.stdout || process.stdout
@@ -48,7 +53,7 @@ class ChildProcessWorker {
 
     this.runtime = options.runtime
     this.entry = options.entry
-    this.handler = options.handler || 'handler'
+    this.handler = options.handler
     this.env = options.env
     // this.options = options
   }
@@ -129,9 +134,12 @@ class ChildProcessWorker {
       let proc
 
       if (/node(js):?(12|14|16)/.test(this.runtime)) {
+        const parts = this.handler.split('.')
+        const handlerField = parts[parts.length - 1]
+
         proc = childProcess.spawn(
           process.execPath,
-          [WORKER_PATH, this.entry, this.handler],
+          [WORKER_PATH, this.entry, handlerField],
           {
             stdio: ['pipe', 'pipe', 'pipe'],
             detached: false,
@@ -139,9 +147,12 @@ class ChildProcessWorker {
           }
         )
       } else if (/python:?(3)/.test(this.runtime)) {
+        const parts = this.handler.split('.')
+        const handlerField = parts[parts.length - 1]
+
         proc = childProcess.spawn(
           'python3',
-          [PYTHON_WORKER_PATH, this.entry, this.handler],
+          [PYTHON_WORKER_PATH, this.entry, handlerField],
           {
             // stdio: 'inherit',
             detached: false,

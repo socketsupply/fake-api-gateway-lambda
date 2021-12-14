@@ -188,10 +188,13 @@ class FakeApiGatewayLambda {
    */
   updateWorker (info) {
     assert(info.functionName, 'functionName required')
+    assert(info.handler, 'info.handler required')
+    assert(info.runtime, 'info.runtime required')
+    assert(info.entry, 'info.entry required')
 
     const opts = {
       env: info.env,
-      runtime: info.runtime || 'nodejs:12.x',
+      runtime: info.runtime,
       stdout: info.stdout,
       stderr: info.stderr,
       tmp: this._tmp,

@@ -34,13 +34,14 @@ class TestCommon {
       env: env,
       functionName: 'python_lambda',
       httpPath: '/python',
-      handler: 'lambda_handler',
+      handler: 'lambda_handler.lambda_handler',
       runtime: 'python3.9'
     })
 
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'go', 'hello.go'),
       env: env,
+      handler: 'hello',
       functionName: 'go_lambda',
       httpPath: '/go',
       runtime: 'go:1.16'
@@ -49,28 +50,36 @@ class TestCommon {
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'hello.js'),
       env: env,
+      runtime: 'nodejs:12.x',
       functionName: 'hello_node_lambda',
+      handler: 'hello.handler',
       httpPath: '/hello'
     })
 
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
       env: env,
+      runtime: 'nodejs:12.x',
       functionName: 'syntax_node_lambda',
+      handler: 'syntax-error.handler',
       httpPath: '/syntax'
     })
 
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'runtime-error.js'),
       env: env,
+      runtime: 'nodejs:12.x',
       functionName: 'runtime_error_node-lambda',
+      handler: 'runtime-error.handler',
       httpPath: '/runtime'
     })
 
     this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'malformed.js'),
       env: env,
+      runtime: 'nodejs:12.x',
       functionName: 'malformed_node-lambda',
+      handler: 'malformed.handler',
       httpPath: '/malformed'
     })
   }
