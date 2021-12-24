@@ -99,6 +99,7 @@ class LambdaWorker {
     const fn = this.lambdaFunction[this.handler]
     const maybePromise = fn(eventObject, {}, (err, result) => {
       if (!result) {
+        console.log('Callback error happened', err)
         this.sendError(id, err)
         return
       }
@@ -110,6 +111,7 @@ class LambdaWorker {
       maybePromise.then((result) => {
         this.sendResult(id, result, raw)
       }, (/** @type {Error} */ err) => {
+        console.log('promise rejection', err)
         this.sendError(id, err)
       })
     }
