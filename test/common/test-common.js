@@ -102,11 +102,8 @@ class TestCommon {
     return fetch(`http://${this.lambda.hostPort}${url}`, init)
   }
 
-  /**
-   * @returns {Promise<void>}
-   */
   async bootstrap () {
-    await this.lambda.bootstrap()
+    return await this.lambda.bootstrap()
   }
 
   /**

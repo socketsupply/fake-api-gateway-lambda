@@ -101,9 +101,6 @@ class FakeApiGatewayLambda {
     this.populateRequestContext = options.populateRequestContext || null
   }
 
-  /**
-   * @returns {Promise<string>}
-   */
   async bootstrap () {
     if (!this.httpServer) {
       throw new Error('cannot bootstrap closed server')
@@ -133,11 +130,19 @@ class FakeApiGatewayLambda {
     }
 
     const server = this.httpServer
-    await util.promisify((cb) => {
-      server.listen(this.port, () => {
-        cb(null, null)
-      })
-    })()
+    try {
+      await util.promisify((cb) => {
+        server.on('listening', () => {
+          cb(null, null)
+        })
+        server.on('error', (err) => {
+          cb(err)
+        })
+        server.listen(this.port)
+      })()
+    } catch (err) {
+      return { err }
+    }
 
     const addr = this.httpServer.address()
     if (!addr || typeof addr === 'string') {
@@ -145,7 +150,7 @@ class FakeApiGatewayLambda {
     }
 
     this.hostPort = `localhost:${addr.port}`
-    return this.hostPort
+    return { data: this.hostPort }
   }
 
   /**
