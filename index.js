@@ -259,9 +259,9 @@ class FakeApiGatewayLambda {
     } else {
       return {
         isBase64Encoded: false,
-        statusCode: 403, // the real api-gateway does a 403.
+        statusCode: 404, // the real api-gateway does a 403.
         headers: {},
-        body: JSON.stringify({ message: 'Forbidden' }),
+        body: JSON.stringify({ message: 'NotFound: The local server does not have this URL path' }),
         multiValueHeaders: {}
       }
     }
@@ -304,11 +304,6 @@ class FakeApiGatewayLambda {
       for (const key of Object.keys(result.multiValueHeaders)) {
         res.setHeader(key, result.multiValueHeaders[key])
       }
-    }
-
-    if (result.isBase64Encoded) {
-      res.statusCode = 400
-      return res.end(JSON.stringify({ message: 'Forbidden' }))
     }
 
     res.end(result.body)
