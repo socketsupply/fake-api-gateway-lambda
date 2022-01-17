@@ -186,10 +186,14 @@ test('calling not found endpoint', async (t) => {
 
   try {
     const res = await common.fetch('/foo')
-    t.equal(res.status, 403, 'random URL returns 403 instead of 404')
+    t.equal(res.status, 404, 'random URL returns 403 instead of 404')
 
     const b = await res.text()
-    t.equal(b, '{"message":"Forbidden"}', '403 body is correct')
+    t.equal(
+      b,
+      '{"message":"NotFound: The local server does not have this URL path"}',
+      '403 body is correct'
+    )
   } finally {
     await common.close()
   }

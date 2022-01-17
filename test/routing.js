@@ -28,10 +28,10 @@ test('calling different routes', async (t) => {
     t.equal(t2, '/users/{userId} /users/bob', 'users/bob api works')
 
     const r3 = await common.fetch('/users/bob/foobar')
-    t.equal(r3.status, 403, 'users/bob/foobar api returns 403')
+    t.equal(r3.status, 404, 'users/bob/foobar api returns 404')
 
     const r4 = await common.fetch('/foobar')
-    t.equal(r4.status, 403, 'foobar api returns 403')
+    t.equal(r4.status, 404, 'foobar api returns 404')
 
     const r5 = await common.fetch('/users/bob/status')
     const t5 = await r5.text()
@@ -50,10 +50,10 @@ test('calling different routes', async (t) => {
     )
 
     const r7 = await common.fetch('/users/bob/teams/teamName/nested')
-    t.equal(r7.status, 403, 'users/bob/teams/teamName/nested api returns 403')
+    t.equal(r7.status, 404, 'users/bob/teams/teamName/nested api returns 404')
 
     const r8 = await common.fetch('/users/bob/teams')
-    t.equal(r8.status, 403, 'users/bob/teams api returns 403')
+    t.equal(r8.status, 404, 'users/bob/teams api returns 404')
 
     const r9 = await common.fetch('/nested/hello/foo/bar/baz')
     const t9 = await r9.text()
@@ -68,10 +68,10 @@ test('calling different routes', async (t) => {
     t.equal(t10, '/proxy/{proxy+} /proxy/1', 'proxy/1 api works')
 
     const r11 = await common.fetch('/proxy')
-    t.equal(r11.status, 403, 'proxy api returns 403')
+    t.equal(r11.status, 404, 'proxy api returns 404')
 
     const r12 = await common.fetch('/proxy/')
-    t.equal(r12.status, 403, 'proxy/ api returns 403')
+    t.equal(r12.status, 404, 'proxy/ api returns 404')
   } finally {
     await common.close()
   }
