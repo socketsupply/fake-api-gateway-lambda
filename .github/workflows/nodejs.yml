@@ -22,4 +22,4 @@ jobs:
     - name: npm test
       run: npm test
       env:
-        GOPATH: /home/runner/work/operatortc/fake-api-gateway-lambda
+        GOPATH: /home/runner/work/socketsupply/fake-api-gateway-lambda
