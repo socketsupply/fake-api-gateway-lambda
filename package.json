@@ -1,6 +1,6 @@
 {
   "name": "fake-api-gateway-lambda",
-  "version": "5.2.7",
+  "version": "5.2.8",
   "description": "This is a testing utility for testing your lambda functions.",
   "scripts": {
     "tsc": "npr tsc -p jsconfig.json --maxNodeModuleJsDepth 0",
