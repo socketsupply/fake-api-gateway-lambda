@@ -178,6 +178,12 @@ class FakeApiGatewayLambda {
     })
   }
 
+  getWorker (httpPath) {
+    return Object.values(this.functions).find((f) => {
+      return f.path === httpPath
+    })
+  }
+
   /**
    * @param {{
    *     stdout?: object,
@@ -209,6 +215,7 @@ class FakeApiGatewayLambda {
 
     const fun = {
       worker: new ChildProcessWorker(opts),
+      functionName: info.functionName,
       path: info.httpPath
     }
 

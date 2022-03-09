@@ -248,7 +248,10 @@ test('calling python handler', async (t) => {
   const info = common.lambda.functions.python_lambda
 
   info.worker.stdout = new PassThrough()
-  info.worker.stdout.on('data', (data) => output.push(data))
+  info.worker.stdout.on('data', (data) => {
+    process.stdout.write(data)
+    output.push(data)
+  })
 
   try {
     const res = await common.fetch('/python')
@@ -271,7 +274,10 @@ test('calling go handler', async (t) => {
   const info = common.lambda.functions.go_lambda
 
   info.worker.stdout = new PassThrough()
-  info.worker.stdout.on('data', (data) => output.push(data))
+  info.worker.stdout.on('data', (data) => {
+    process.stdout.write(data)
+    output.push(data)
+  })
 
   try {
     const res = await common.fetch('/go')
