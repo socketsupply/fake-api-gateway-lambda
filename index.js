@@ -51,6 +51,7 @@ const ChildProcessWorker = require('./child-process-worker')
 
     @typedef {{
         path: string,
+        functionName: string,
         worker: ChildProcessWorker
     }} FunctionInfo
 */
@@ -213,6 +214,7 @@ class FakeApiGatewayLambda {
       entry: info.entry
     }
 
+    /** @type {FunctionInfo} */
     const fun = {
       worker: new ChildProcessWorker(opts),
       functionName: info.functionName,
