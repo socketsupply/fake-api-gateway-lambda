@@ -31,11 +31,13 @@ test('calling python handler', async (t) => {
     const eventLine = output.find((line) => {
       return line.includes('INFO event')
     })
-    t.ok(eventLine)
-    t.ok(eventLine.includes(`'path': '/python'`))
-    t.ok(eventLine.includes(`'body': ''`))
-    t.ok(eventLine.includes(` 'httpMethod': 'GET',`))
-
+    t.ok(eventLine, 'event is logged')
+    t.ok(eventLine.includes('\'path\': \'/python\''),
+      'event includes path field')
+    t.ok(eventLine.includes('\'body\': \'\''),
+      'event includes body field')
+    t.ok(eventLine.includes(' \'httpMethod\': \'GET\','),
+      'event includes httpMethod field')
   } finally {
     await common.close()
   }
@@ -66,10 +68,13 @@ test('calling go handler', async (t) => {
     const eventLine = output.find((line) => {
       return line.includes('INFO event')
     })
-    t.ok(eventLine)
-    t.ok(eventLine.includes('"path":"/go"'))
-    t.ok(eventLine.includes('"body":"'))
-    t.ok(eventLine.includes(',"httpMethod":"GET",'))
+    t.ok(eventLine, 'event is logged')
+    t.ok(eventLine.includes('"path":"/go"'),
+      'event includes path field')
+    t.ok(eventLine.includes('"body":"'),
+      'event includes body field')
+    t.ok(eventLine.includes(',"httpMethod":"GET",'),
+      'event includes httpMethod field')
   } finally {
     await common.close()
   }
