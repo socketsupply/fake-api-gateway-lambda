@@ -62,6 +62,14 @@ test('calling go handler', async (t) => {
 
     t.ok(output.join('\n').includes('INFO hello from lambda'),
       'logs from go lambda are correct')
+
+    const eventLine = output.find((line) => {
+      return line.includes('INFO event')
+    })
+    t.ok(eventLine)
+    t.ok(eventLine.includes('"path":"/go"'))
+    t.ok(eventLine.includes('"body":"'))
+    t.ok(eventLine.includes(',"httpMethod":"GET",'))
   } finally {
     await common.close()
   }

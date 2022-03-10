@@ -1,4 +1,4 @@
-module.exports = `
+module.exports = /*go*/`
 // Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // Copyright https://github.com/yogeshlonkar/aws-lambda-go-test
 package main
@@ -319,18 +319,17 @@ type ResultObject struct {
 
 type Event struct {
   Id string
+  EventObject json.RawMessage
 }
 
 func main () {
   portFlag := flag.Int("p", 8888, "Port to run lambda on")
   pathFlag := flag.String("P", "", "Path to lambda file")
-  payloadFlag := flag.String("d", "", "Payload data to send to lambda")
 
   flag.Parse()
 
   var lambdaPort = *portFlag
   var lambdaPath = *pathFlag
-  var lambdaPayload = *payloadFlag
 
   stat, _ := os.Stdin.Stat()
 
@@ -345,7 +344,7 @@ func main () {
 
   res, err := Run(Input {
     Port: lambdaPort,
-    Payload: lambdaPayload,
+    Payload: event.EventObject,
     AbsLambdaPath: lambdaPath,
   })
 
