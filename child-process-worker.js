@@ -3,26 +3,36 @@
 
 const childProcess = require('child_process')
 const assert = require('assert')
-const fs = require('fs')
 const path = require('path')
+const fs = require('fs')
 const os = require('os')
 
 const tmp = os.tmpdir()
 
 const JS_WORKER_TXT = require('./workers/js-worker-txt.js')
-const GO_WORKER_TXT = require('./workers/go-worker-txt.js')
 const PY_WORKER_TXT = require('./workers/py-worker-txt.js')
 
+const GO_WORKER_WINDOWS_TXT = require('./workers/go-worker-windows-txt.js')
+const GO_WORKER_POSIX_TXT = require('./workers/go-worker-posix-txt.js')
+
 const WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.js`
-const GO_WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.go`
 const PYTHON_WORKER_PATH = `${tmp}/fake-api-gateway-lambda/worker.py`
+const GO_WORKER_POSIX_PATH = `${tmp}/fake-api-gateway-lambda/worker-posix.go`
+const GO_WORKER_WINDOWS_PATH = `${tmp}/fake-api-gateway-lambda/worker-windows.go`
+
+const isWindows = os.platform() === 'win32'
 
 try {
   fs.mkdirSync(path.dirname(WORKER_PATH), { recursive: true })
   fs.writeFileSync(WORKER_PATH, JS_WORKER_TXT)
 
-  fs.mkdirSync(path.dirname(GO_WORKER_PATH), { recursive: true })
-  fs.writeFileSync(GO_WORKER_PATH, GO_WORKER_TXT)
+  if (isWindows) {
+    fs.mkdirSync(path.dirname(GO_WORKER_WINDOWS_PATH), { recursive: true })
+    fs.writeFileSync(GO_WORKER_WINDOWS_PATH, GO_WORKER_WINDOWS_TXT)
+  } else {
+    fs.mkdirSync(path.dirname(GO_WORKER_POSIX_PATH), { recursive: true })
+    fs.writeFileSync(GO_WORKER_POSIX_PATH, GO_WORKER_POSIX_TXT)
+  }
 
   fs.mkdirSync(path.dirname(PYTHON_WORKER_PATH), { recursive: true })
   fs.writeFileSync(PYTHON_WORKER_PATH, PY_WORKER_TXT)
@@ -161,15 +171,17 @@ class ChildProcessWorker {
           }
         )
       } else if (/go:?(1)/.test(this.runtime)) {
+        const workerPath = isWindows ? GO_WORKER_WINDOWS_PATH : GO_WORKER_POSIX_PATH
         proc = childProcess.spawn(
           'go',
-          ['run', GO_WORKER_PATH, '-p', '0', '-P', this.entry],
+          ['run', workerPath, '-p', '0', '-P', this.entry],
           {
             // stdio: 'inherit',
             detached: false,
             shell: true,
-            cwd: path.dirname(GO_WORKER_PATH),
+            cwd: path.dirname(workerPath),
             env: {
+              GOCACHE: process.env.GOCACHE,
               GOROOT: process.env.GOROOT,
               GOPATH: process.env.GOPATH,
               HOME: process.env.HOME,
@@ -179,6 +191,7 @@ class ChildProcessWorker {
           }
         )
       }
+
       this.procs.push(proc)
       proc.unref()
 
@@ -272,7 +285,7 @@ class ChildProcessWorker {
   }
 
   close () {
-    this.procs.forEach(v => v.kill(0))
+    this.procs.forEach(proc => proc.kill())
     this.procs = []
   }
 }
