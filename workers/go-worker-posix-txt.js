@@ -227,6 +227,7 @@ func (input *Input) startLambdaIfNotRunning() func() {
         Setpgid: true,
       }
 
+      cmd.Stderr = os.Stderr
       cmd.Stdout = os.Stdout
       cmd.Stdin = os.Stdin
 
