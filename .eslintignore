@@ -1,1 +1,2 @@
 test/lambdas/*.js
+workers/go-*.js
