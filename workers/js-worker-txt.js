@@ -196,7 +196,9 @@ async function dynamicLambdaRequire (fileName) {
     if (err.name === 'SyntaxError') {
       try {
         return await import(fileName)
-      } catch (_) { }
+      } catch (err2) {
+        throw err2
+      }
     }
 
     throw err
