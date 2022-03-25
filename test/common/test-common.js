@@ -57,6 +57,15 @@ class TestCommon {
     })
 
     this.lambda.updateWorker({
+      entry: path.join(__dirname, '..', 'lambdas', 'esm.mjs'),
+      env: env,
+      runtime: 'nodejs:12.x',
+      functionName: 'node_esm_lambda',
+      handler: 'esm.handler',
+      httpPath: '/esm'
+    })
+
+    this.lambda.updateWorker({
       entry: path.join(__dirname, '..', 'lambdas', 'syntax-error.js'),
       env: env,
       runtime: 'nodejs:12.x',
