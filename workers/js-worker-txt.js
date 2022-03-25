@@ -31,9 +31,13 @@ module.exports = `
   }} LambdaFunction
 */
 
+process.on('unhandledRejection', (err) => {
+   throw err
+})
+
 class LambdaWorker {
   constructor (entry, handler) {
-    this.lambdaFunction = dynamicLambdaRequire(entry)
+    this.lambdaFunctionPromise = dynamicLambdaRequire(entry)
     this.handler = handler
   }
 
@@ -45,7 +49,7 @@ class LambdaWorker {
    * }} msg
    * @returns {void}
    */
-  handleMessage (msg) {
+  async handleMessage (msg) {
     if (typeof msg !== 'object' || Object.is(msg, null)) {
       bail('bad data type from parent process: handleMessage')
       return
@@ -70,7 +74,7 @@ class LambdaWorker {
         return
       }
 
-      this.invokeLambda(id, eventObject, objMsg.raw)
+      await this.invokeLambda(id, eventObject, objMsg.raw)
     } else {
       bail('bad data type from parent process: unknown')
     }
@@ -81,7 +85,7 @@ class LambdaWorker {
    * @param {Record<string, unknown>} eventObject
    * @returns {void}
    */
-  invokeLambda (id, eventObject, raw) {
+  async invokeLambda (id, eventObject, raw) {
     /**
      * @raynos TODO: We have to populate the lambda eventObject
      * here and we have not done so at all.
@@ -96,7 +100,8 @@ class LambdaWorker {
      * that we can borrow implementations from.
      */
 
-    const fn = this.lambdaFunction[this.handler]
+    const lambdaFunction = await this.lambdaFunctionPromise
+    const fn = lambdaFunction[this.handler]
     const maybePromise = fn(eventObject, {}, (err, result) => {
       if (!result) {
         console.log('Callback error happened', err)
@@ -108,7 +113,7 @@ class LambdaWorker {
     })
 
     if (maybePromise) {
-      maybePromise.then((result) => {
+      return maybePromise.then((result) => {
         this.sendResult(id, result, raw)
       }, (/** @type {Error} */ err) => {
         console.log('promise rejection', err)
@@ -180,8 +185,22 @@ function bail (msg) {
  * @param {string} fileName
  * @returns {LambdaFunction}
  */
-function dynamicLambdaRequire (fileName) {
-  return /** @type {LambdaFunction} */ (require(fileName))
+async function dynamicLambdaRequire (fileName) {
+  try {
+    return /** @type {LambdaFunction} */ (require(fileName))
+  } catch (err) {
+    if (err.code === 'ERR_REQUIRE_ESM') {
+      return await import(fileName)
+    }
+
+    if (err.name === 'SyntaxError') {
+      try {
+        return await import(fileName)
+      } catch (_) { }
+    }
+
+    throw err
+  }
 }
 
 function main () {
