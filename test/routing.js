@@ -6,6 +6,26 @@ const { test } = require('tapzero')
 
 const TestCommon = require('./common/test-common.js')
 
+test('calling / directly', async (t) => {
+  const common = await TestCommon.create()
+
+  try {
+    common.lambda.updateWorker({
+      runtime: 'nodejs:12.x',
+      httpPath: '/',
+      handler: 'echo.handler',
+      functionName: `_temp_0`,
+      entry: path.join(__dirname, 'lambdas', 'echo.js')
+    })
+
+    const r1 = await common.fetch('/')
+    const t1 = await r1.text()
+    t.equal(t1, '/ /', '/ api works')
+  } finally {
+    await common.close()
+  }
+})
+
 test('calling different routes', async (t) => {
   const common = await TestCommon.create()
 
