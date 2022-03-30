@@ -14,7 +14,7 @@ test('calling / directly', async (t) => {
       runtime: 'nodejs:12.x',
       httpPath: '/',
       handler: 'echo.handler',
-      functionName: `_temp_0`,
+      functionName: '_temp_0',
       entry: path.join(__dirname, 'lambdas', 'echo.js')
     })
 
