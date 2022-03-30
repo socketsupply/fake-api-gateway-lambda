@@ -607,7 +607,7 @@ function matchRoute (functions, pathname) {
       const routeSegment = routeSegments[i]
       const pathSegment = pathSegments[i]
 
-      if (!pathSegment) {
+      if (!pathSegment && pathSegment !== '') {
         return false
       }
 
