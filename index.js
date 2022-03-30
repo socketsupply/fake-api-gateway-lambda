@@ -616,6 +616,10 @@ function matchRoute (functions, pathname) {
           return false
         }
       }
+
+      if (routeSegment.startsWith('{') && pathSegment === '') {
+        return false
+      }
     }
 
     return true
