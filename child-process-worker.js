@@ -240,6 +240,21 @@ class ChildProcessWorker {
         reject(err)
       })
 
+      proc.stdin.on('error', function (err) {
+        /**
+         * Sometimes we get an EPIPE exception when writing to
+         * stdin for a process where the command is not found.
+         *
+         * We really care boure about the command not found error
+         * so we swallow the EPIPE and let the other err bubble instead
+         */
+        if (Reflect.get(err, 'code') === 'EPIPE') {
+          return
+        }
+
+        reject(err)
+      })
+
       proc.stdin.write(JSON.stringify({
         message: 'event',
         id,
