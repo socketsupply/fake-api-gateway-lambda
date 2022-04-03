@@ -124,7 +124,7 @@ class FakeApiGatewayLambda {
 
       const httpsServer = this.httpsServer
       await util.promisify((cb) => {
-        httpsServer.listen(this.httpsPort, () => {
+        httpsServer.listen(this.httpsPort, '127.0.0.1', () => {
           cb(null, null)
         })
       })()
@@ -139,7 +139,7 @@ class FakeApiGatewayLambda {
         server.on('error', (err) => {
           cb(err)
         })
-        server.listen(this.port)
+        server.listen(this.port, '127.0.0.1')
       })()
     } catch (err) {
       return { err }

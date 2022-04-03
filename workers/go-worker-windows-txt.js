@@ -272,7 +272,7 @@ func (input *Input) setTimeOutIfZero() {
 
 func (input *Input) assignPortIfZero() {
   if input.Port == 0 {
-    listener, err := net.Listen("tcp", ":0")
+    listener, err := net.Listen("tcp", "127.0.0.1:0")
     if err != nil {
       panic(err)
     }
