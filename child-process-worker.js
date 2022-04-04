@@ -198,11 +198,9 @@ class ChildProcessWorker {
       this.procs.push(proc)
       proc.unref()
 
-      let errorString
+      let errorString = ''
       proc.stderr.on('data', (line) => {
-        if (!errorString) {
-          errorString = line.toString()
-        }
+        errorString += line.toString()
 
         this.logLine(this.stderr, line, 'ERR')
       })
