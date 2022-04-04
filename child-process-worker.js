@@ -148,7 +148,7 @@ class ChildProcessWorker {
         const handlerField = parts[parts.length - 1]
 
         proc = childProcess.spawn(
-          process.execPath,
+          'node',
           [WORKER_PATH, this.entry, handlerField],
           {
             stdio: ['pipe', 'pipe', 'pipe'],
@@ -160,8 +160,10 @@ class ChildProcessWorker {
         const parts = this.handler.split('.')
         const handlerField = parts[parts.length - 1]
 
+        const cmd = process.platform === 'win32' ? 'py' : 'python3'
+
         proc = childProcess.spawn(
-          'python3',
+          cmd,
           [PYTHON_WORKER_PATH, this.entry, handlerField],
           {
             // stdio: 'inherit',
