@@ -223,7 +223,7 @@ func (input *Input) startLambdaIfNotRunning() func() {
       )
 
       cmd.SysProcAttr = &syscall.SysProcAttr {
-        Pdeathsig: syscall.SIGTERM,
+        // Pdeathsig: syscall.SIGTERM,
         Setpgid: true,
       }
 
