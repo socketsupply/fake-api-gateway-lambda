@@ -188,6 +188,7 @@ class ChildProcessWorker {
               GOPATH: process.env.GOPATH,
               HOME: process.env.HOME,
               PATH: process.env.PATH,
+              LOCALAPPDATA: process.env.LOCALAPPDATA,
               ...this.env
             }
           }
