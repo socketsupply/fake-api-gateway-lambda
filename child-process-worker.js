@@ -153,7 +153,10 @@ class ChildProcessWorker {
           {
             stdio: ['pipe', 'pipe', 'pipe'],
             detached: false,
-            env: this.env
+            env: {
+              PATH: process.env.PATH,
+              ...this.env
+            }
           }
         )
       } else if (/python:?(3)/.test(this.runtime)) {
@@ -169,7 +172,10 @@ class ChildProcessWorker {
             // stdio: 'inherit',
             detached: false,
             shell: true,
-            env: this.env
+            env: {
+              PATH: process.env.PATH,
+              ...this.env
+            }
           }
         )
       } else if (/go:?(1)/.test(this.runtime)) {
