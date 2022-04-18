@@ -133,74 +133,104 @@ class ChildProcessWorker {
     })
   }
 
-  request (id, eventObject, raw) {
+  async request (id, eventObject, raw) {
     this.latestId = id
     this.stdout.write(
       `START\tRequestId:${id}\tVersion:$LATEST\n`
     )
     const start = Date.now()
 
-    return new Promise((resolve, reject) => {
-      let proc
+    let proc
 
-      if (/node(js):?(12|14|16)/.test(this.runtime)) {
-        const parts = this.handler.split('.')
-        const handlerField = parts[parts.length - 1]
+    if (/node(js):?(12|14|16)/.test(this.runtime)) {
+      const parts = this.handler.split('.')
+      const handlerField = parts[parts.length - 1]
 
-        proc = childProcess.spawn(
-          'node',
-          [WORKER_PATH, this.entry, handlerField],
-          {
-            stdio: ['pipe', 'pipe', 'pipe'],
-            detached: false,
-            env: {
-              PATH: process.env.PATH,
-              ...this.env
-            }
+      proc = childProcess.spawn(
+        'node',
+        [WORKER_PATH, this.entry, handlerField],
+        {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          detached: false,
+          env: {
+            PATH: process.env.PATH,
+            ...this.env
           }
-        )
-      } else if (/python:?(3)/.test(this.runtime)) {
-        const parts = this.handler.split('.')
-        const handlerField = parts[parts.length - 1]
+        }
+      )
+    } else if (/python:?(3)/.test(this.runtime)) {
+      const parts = this.handler.split('.')
+      const handlerField = parts[parts.length - 1]
 
-        const cmd = process.platform === 'win32' ? 'py' : 'python3'
+      const cmd = process.platform === 'win32' ? 'py' : 'python3'
 
-        proc = childProcess.spawn(
-          cmd,
-          [PYTHON_WORKER_PATH, this.entry, handlerField],
-          {
-            // stdio: 'inherit',
-            detached: false,
-            shell: true,
-            env: {
-              PATH: process.env.PATH,
-              ...this.env
-            }
+      proc = childProcess.spawn(
+        cmd,
+        [PYTHON_WORKER_PATH, this.entry, handlerField],
+        {
+          // stdio: 'inherit',
+          detached: false,
+          shell: true,
+          env: {
+            PATH: process.env.PATH,
+            ...this.env
           }
-        )
-      } else if (/go:?(1)/.test(this.runtime)) {
-        const workerPath = isWindows ? GO_WORKER_WINDOWS_PATH : GO_WORKER_POSIX_PATH
-        proc = childProcess.spawn(
-          'go',
-          ['run', workerPath, '-p', '0', '-P', this.entry],
-          {
-            // stdio: 'inherit',
-            detached: false,
-            shell: true,
-            cwd: path.dirname(workerPath),
-            env: {
-              GOCACHE: process.env.GOCACHE,
-              GOROOT: process.env.GOROOT,
-              GOPATH: process.env.GOPATH,
-              HOME: process.env.HOME,
-              PATH: process.env.PATH,
-              LOCALAPPDATA: process.env.LOCALAPPDATA,
-              ...this.env
-            }
-          }
-        )
+        }
+      )
+    } else if (/go:?(1)/.test(this.runtime)) {
+      const workerPath = isWindows ? GO_WORKER_WINDOWS_PATH : GO_WORKER_POSIX_PATH
+      const workerBin = workerPath.replace('.go', '')
+
+      const buildCommand = `go build ${workerPath}`
+      const buildOptions = {
+        cwd: path.dirname(workerPath),
+        env: {
+          GOCACHE: process.env.GOCACHE,
+          GOROOT: process.env.GOROOT,
+          GOPATH: process.env.GOPATH,
+          HOME: process.env.HOME,
+          PATH: process.env.PATH,
+          LOCALAPPDATA: process.env.LOCALAPPDATA,
+          ...this.env
+        }
       }
 
+      const buildResult = await new Promise((resolve) => {
+        childProcess.exec(buildCommand, buildOptions, (...args) => resolve(args))
+      })
+
+      if (buildResult.err) {
+        return Promise.reject(buildResult.err)
+      }
+
+      if (buildResult.stderr) {
+        const err = new Error('Internal Server Error')
+        Reflect.set(err, 'errorString', buildResult.stderr)
+        return Promise.reject(err)
+      }
+
+      proc = childProcess.spawn(
+        workerBin,
+        ['-p', '0', '-P', this.entry],
+        {
+          // stdio: 'inherit',
+          detached: false,
+          shell: true,
+          cwd: path.dirname(workerPath),
+          env: {
+            GOCACHE: process.env.GOCACHE,
+            GOROOT: process.env.GOROOT,
+            GOPATH: process.env.GOPATH,
+            HOME: process.env.HOME,
+            PATH: process.env.PATH,
+            LOCALAPPDATA: process.env.LOCALAPPDATA,
+            ...this.env
+          }
+        }
+      )
+    }
+
+    return new Promise((resolve, reject) => {
       this.procs.push(proc)
       proc.unref()
 
