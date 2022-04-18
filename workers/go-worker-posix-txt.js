@@ -231,6 +231,8 @@ func (input *Input) startLambdaIfNotRunning() func() {
 
       os.Chdir(build.Dir)
       cmd := exec.Command(name)
+
+      cmd.Dir = filepath.Dir(input.AbsLambdaPath)
       cmd.Env = append(
         os.Environ(),
         fmt.Sprintf("_LAMBDA_SERVER_PORT=%d", input.Port),
