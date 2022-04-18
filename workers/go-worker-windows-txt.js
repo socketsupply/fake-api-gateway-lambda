@@ -222,6 +222,7 @@ func (input *Input) startLambdaIfNotRunning() func() {
       build := exec.Command("go", "build", input.AbsLambdaPath)
 
       build.Dir = filepath.Dir(input.AbsLambdaPath)
+      build.Env = os.Environ()
       build.Stderr = os.Stderr
       build.Stdout = os.Stdout
 

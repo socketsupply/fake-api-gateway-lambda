@@ -150,7 +150,7 @@ class FakeApiGatewayLambda {
       throw new Error('invalid http server address')
     }
 
-    this.hostPort = `localhost:${addr.port}`
+    this.hostPort = `127.0.0.1:${addr.port}`
     return { data: this.hostPort }
   }
 
@@ -364,7 +364,7 @@ class FakeApiGatewayLambda {
     if (!this.enableCors && req.headers.referer) {
       // eslint-disable-next-line node/no-deprecated-api
       const referer = url.parse(req.headers.referer)
-      if (referer.hostname !== 'localhost') {
+      if (referer.hostname !== 'localhost' && referer.hostname !== '127.0.0.1') {
         res.statusCode = 403
         return res.end(JSON.stringify({ message: 'expected request from localhost' }, null, 2))
       }
@@ -373,7 +373,8 @@ class FakeApiGatewayLambda {
 
     // if the host header is not us, the request *thought* it was going to something else
     // this could be a DNS poisoning attack.
-    if (req.headers.host && req.headers.host.split(':')[0] !== 'localhost') {
+    const host = req.headers.host && req.headers.host.split(':')[0]
+    if (host !== 'localhost' && host !== '127.0.0.1') {
       // error - dns poisoning attack
       res.statusCode = 403
       return res.end(JSON.stringify({ message: 'unexpected host header' }, null, 2))
