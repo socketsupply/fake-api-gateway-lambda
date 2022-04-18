@@ -196,7 +196,7 @@ class ChildProcessWorker {
       }
 
       const buildResult = await new Promise((resolve) => {
-        childProcess.exec(buildCommand, buildOptions, (...args) => resolve(args))
+        childProcess.exec(buildCommand, buildOptions, (err, stderr) => resolve({ err, stderr }))
       })
 
       if (buildResult.err) {
@@ -209,25 +209,20 @@ class ChildProcessWorker {
         return Promise.reject(err)
       }
 
-      proc = childProcess.spawn(
-        workerBin,
-        ['-p', '0', '-P', this.entry],
-        {
-          // stdio: 'inherit',
-          detached: false,
-          shell: true,
-          cwd: path.dirname(workerPath),
-          env: {
-            GOCACHE: process.env.GOCACHE,
-            GOROOT: process.env.GOROOT,
-            GOPATH: process.env.GOPATH,
-            HOME: process.env.HOME,
-            PATH: process.env.PATH,
-            LOCALAPPDATA: process.env.LOCALAPPDATA,
-            ...this.env
-          }
+      proc = childProcess.spawn(workerBin, ['-p', '0', '-P', this.entry], {
+        detached: false,
+        shell: true,
+        cwd: path.dirname(workerPath),
+        env: {
+          GOCACHE: process.env.GOCACHE,
+          GOROOT: process.env.GOROOT,
+          GOPATH: process.env.GOPATH,
+          HOME: process.env.HOME,
+          PATH: process.env.PATH,
+          LOCALAPPDATA: process.env.LOCALAPPDATA,
+          ...this.env
         }
-      )
+      })
     }
 
     return new Promise((resolve, reject) => {
