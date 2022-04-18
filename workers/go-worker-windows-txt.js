@@ -218,7 +218,7 @@ func (input *Input) startLambdaIfNotRunning() func() {
         log.Fatal("failed to change directory to lambda project: ", err)
       }
 
-      name := strings.ReplaceAll(filepath.Base(input.AbsLambdaPath), ".go", "")
+      name := strings.ReplaceAll(input.AbsLambdaPath, ".go", "")
       build := exec.Command("go", "build", input.AbsLambdaPath)
 
       build.Dir = filepath.Dir(input.AbsLambdaPath)
