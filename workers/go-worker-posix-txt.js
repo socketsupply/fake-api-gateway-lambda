@@ -5,7 +5,7 @@ package main
 
 import (
   "bufio"
-	"context"
+  "context"
   "encoding/json"
   "errors"
   "flag"
@@ -16,6 +16,8 @@ import (
   "os"
   "os/exec"
   "path"
+  "path/filepath"
+  "strings"
   "strconv"
   "syscall"
   "time"
@@ -26,44 +28,44 @@ type PingResponse struct { }
 
 //nolint:stylecheck
 type InvokeRequest_Timestamp struct {
-	Seconds int64
-	Nanos   int64
+  Seconds int64
+  Nanos   int64
 }
 
 //nolint:stylecheck
 type InvokeRequest struct {
-	Payload               []byte
-	RequestId             string //nolint:stylecheck
-	XAmznTraceId          string
-	Deadline              InvokeRequest_Timestamp
-	InvokedFunctionArn    string
-	CognitoIdentityId     string //nolint:stylecheck
-	CognitoIdentityPoolId string //nolint:stylecheck
-	ClientContext         []byte
+  Payload               []byte
+  RequestId             string //nolint:stylecheck
+  XAmznTraceId          string
+  Deadline              InvokeRequest_Timestamp
+  InvokedFunctionArn    string
+  CognitoIdentityId     string //nolint:stylecheck
+  CognitoIdentityPoolId string //nolint:stylecheck
+  ClientContext         []byte
 }
 
 type InvokeResponse struct {
-	Payload []byte
-	Error   *InvokeResponse_Error
+  Payload []byte
+  Error   *InvokeResponse_Error
 }
 
 //nolint:stylecheck
 type InvokeResponse_Error struct {
-	Message    string                             \`json:"errorMessage"\`
-	Type       string                             \`json:"errorType"\`
-	StackTrace []*InvokeResponse_Error_StackFrame \`json:"stackTrace,omitempty"\`
-	ShouldExit bool                               \`json:"-"\`
+  Message    string                             \`json:"errorMessage"\`
+  Type       string                             \`json:"errorType"\`
+  StackTrace []*InvokeResponse_Error_StackFrame \`json:"stackTrace,omitempty"\`
+  ShouldExit bool                               \`json:"-"\`
 }
 
 func (e InvokeResponse_Error) Error() string {
-	return fmt.Sprintf("%#v", e)
+  return fmt.Sprintf("%#v", e)
 }
 
 //nolint:stylecheck
 type InvokeResponse_Error_StackFrame struct {
-	Path  string \`json:"path"\`
-	Line  int32  \`json:"line"\`
-	Label string \`json:"label"\`
+  Path  string \`json:"path"\`
+  Line  int32  \`json:"line"\`
+  Label string \`json:"label"\`
 }
 
 const functioninvokeRPC = "Function.Invoke"
@@ -94,44 +96,44 @@ var MemoryLimitInMB int
 var FunctionVersion string
 
 func init() {
-	LogGroupName = os.Getenv("AWS_LAMBDA_LOG_GROUP_NAME")
-	LogStreamName = os.Getenv("AWS_LAMBDA_LOG_STREAM_NAME")
-	FunctionName = os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
-	if limit, err := strconv.Atoi(os.Getenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE")); err != nil {
-		MemoryLimitInMB = 0
-	} else {
-		MemoryLimitInMB = limit
-	}
-	FunctionVersion = os.Getenv("AWS_LAMBDA_FUNCTION_VERSION")
+  LogGroupName = os.Getenv("AWS_LAMBDA_LOG_GROUP_NAME")
+  LogStreamName = os.Getenv("AWS_LAMBDA_LOG_STREAM_NAME")
+  FunctionName = os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
+  if limit, err := strconv.Atoi(os.Getenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE")); err != nil {
+  	MemoryLimitInMB = 0
+  } else {
+  	MemoryLimitInMB = limit
+  }
+  FunctionVersion = os.Getenv("AWS_LAMBDA_FUNCTION_VERSION")
 }
 
 // ClientApplication is metadata about the calling application.
 type ClientApplication struct {
-	InstallationID string \`json:"installation_id"\`
-	AppTitle       string \`json:"app_title"\`
-	AppVersionCode string \`json:"app_version_code"\`
-	AppPackageName string \`json:"app_package_name"\`
+  InstallationID string \`json:"installation_id"\`
+  AppTitle       string \`json:"app_title"\`
+  AppVersionCode string \`json:"app_version_code"\`
+  AppPackageName string \`json:"app_package_name"\`
 }
 
 // ClientContext is information about the client application passed by the calling application.
 type ClientContext struct {
-	Client ClientApplication
-	Env    map[string]string \`json:"env"\`
-	Custom map[string]string \`json:"custom"\`
+  Client ClientApplication
+  Env    map[string]string \`json:"env"\`
+  Custom map[string]string \`json:"custom"\`
 }
 
 // CognitoIdentity is the cognito identity used by the calling application.
 type CognitoIdentity struct {
-	CognitoIdentityID     string
-	CognitoIdentityPoolID string
+  CognitoIdentityID     string
+  CognitoIdentityPoolID string
 }
 
 // LambdaContext is the set of metadata that is passed for every Invoke.
 type LambdaContext struct {
-	AwsRequestID       string //nolint: stylecheck
-	InvokedFunctionArn string //nolint: stylecheck
-	Identity           CognitoIdentity
-	ClientContext      ClientContext
+  AwsRequestID       string //nolint: stylecheck
+  InvokedFunctionArn string //nolint: stylecheck
+  Identity           CognitoIdentity
+  ClientContext      ClientContext
 }
 
 // An unexported type to be used as the key for types in this package.
@@ -145,13 +147,13 @@ var contextKey = &key{}
 
 // NewContext returns a new Context that carries value lc.
 func NewContext(parent context.Context, lc *LambdaContext) context.Context {
-	return context.WithValue(parent, contextKey, lc)
+  return context.WithValue(parent, contextKey, lc)
 }
 
 // FromContext returns the LambdaContext value stored in ctx, if any.
 func FromContext(ctx context.Context) (*LambdaContext, bool) {
-	lc, ok := ctx.Value(contextKey).(*LambdaContext)
-	return lc, ok
+  lc, ok := ctx.Value(contextKey).(*LambdaContext)
+  return lc, ok
 }
 
 //Run a Go based lambda, passing the configured payload
@@ -216,7 +218,19 @@ func (input *Input) startLambdaIfNotRunning() func() {
         log.Fatal("failed to change directory to lambda project: ", err)
       }
 
-      cmd := exec.Command("go", "run", input.AbsLambdaPath)
+      name := strings.ReplaceAll(filepath.Base(input.AbsLambdaPath), ".go", "")
+      build := exec.Command("go", "build", input.AbsLambdaPath)
+
+      build.Dir = filepath.Dir(input.AbsLambdaPath)
+      build.Stderr = os.Stderr
+      build.Stdout = os.Stdout
+
+      if err := build.Run(); err != nil {
+        log.Fatal(err)
+      }
+
+      os.Chdir(build.Dir)
+      cmd := exec.Command(name)
       cmd.Env = append(
         os.Environ(),
         fmt.Sprintf("_LAMBDA_SERVER_PORT=%d", input.Port),
@@ -236,6 +250,7 @@ func (input *Input) startLambdaIfNotRunning() func() {
       }
 
       time.Sleep(2 * time.Second)
+
       return func() {
         syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
       }
