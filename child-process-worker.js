@@ -141,6 +141,10 @@ class ChildProcessWorker {
     const start = Date.now()
 
     let proc
+    let shell
+    if (process.platform !== 'win32') {
+      shell = os.userInfo().shell
+    }
 
     if (/node(js):?(12|14|16)/.test(this.runtime)) {
       const parts = this.handler.split('.')
@@ -152,6 +156,7 @@ class ChildProcessWorker {
         {
           stdio: ['pipe', 'pipe', 'pipe'],
           detached: false,
+          shell: shell || true,
           env: {
             PATH: process.env.PATH,
             ...this.env
@@ -170,7 +175,7 @@ class ChildProcessWorker {
         {
           // stdio: 'inherit',
           detached: false,
-          shell: true,
+          shell: shell || true,
           env: {
             PATH: process.env.PATH,
             ...this.env
@@ -184,6 +189,7 @@ class ChildProcessWorker {
       const buildCommand = `go build ${workerPath}`
       const buildOptions = {
         cwd: path.dirname(workerPath),
+        shell: shell,
         env: {
           GOCACHE: process.env.GOCACHE,
           GOROOT: process.env.GOROOT,
@@ -211,7 +217,7 @@ class ChildProcessWorker {
 
       proc = childProcess.spawn(workerBin, ['-p', '0', '-P', this.entry], {
         detached: false,
-        shell: true,
+        shell: shell || true,
         cwd: path.dirname(workerPath),
         env: {
           GOCACHE: process.env.GOCACHE,
