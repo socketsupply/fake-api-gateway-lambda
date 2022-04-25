@@ -3,6 +3,8 @@ package-lock.json
 coverage
 node_modules
 
+test/lambdas/go/hello
+
 .nyc_output
 .vscode
 __pycache__/
