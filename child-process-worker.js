@@ -149,7 +149,6 @@ class ChildProcessWorker {
       shell = false
     }
 
-
     if (/node(js):?(12|14|16)/.test(this.runtime)) {
       const parts = this.handler.split('.')
       const handlerField = parts[parts.length - 1]
@@ -195,7 +194,7 @@ class ChildProcessWorker {
       const buildCommand = `go build ${workerPath}`
       const buildOptions = {
         cwd: path.dirname(workerPath),
-        shell: shell,
+        shell: typeof shell === 'string' ? shell : undefined,
         env: {
           GOCACHE: process.env.GOCACHE,
           GOROOT: process.env.GOROOT,
