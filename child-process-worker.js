@@ -150,8 +150,10 @@ class ChildProcessWorker {
       const parts = this.handler.split('.')
       const handlerField = parts[parts.length - 1]
 
+      const cmd = process.platform === 'win32' ? process.execPath : 'node'
+
       proc = childProcess.spawn(
-        'node',
+        cmd,
         [WORKER_PATH, this.entry, handlerField],
         {
           stdio: ['pipe', 'pipe', 'pipe'],
