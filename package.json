@@ -16,7 +16,7 @@
     "@types/node": "12.0.2",
     "collapsed-assert": "1.0.3",
     "git-hooks-plus": "1.0.1",
-    "node-fetch": "2.6.1",
+    "node-fetch": "2.6.7",
     "npm-bin-deps": "1.10.1",
     "tapzero": "0.6.1"
   },
@@ -42,6 +42,5 @@
       "type": "MIT",
       "url": "http://github.com/Raynos/fake-ses/raw/master/LICENSE"
     }
-  ],
-  "dependencies": {}
+  ]
 }
