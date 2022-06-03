@@ -141,10 +141,13 @@ class ChildProcessWorker {
     const start = Date.now()
 
     let proc
-    let shell
+    let shell = true
     if (process.platform !== 'win32') {
       shell = os.userInfo().shell
+    } else {
+      shell = false
     }
+
 
     if (/node(js):?(12|14|16)/.test(this.runtime)) {
       const parts = this.handler.split('.')
@@ -158,7 +161,7 @@ class ChildProcessWorker {
         {
           stdio: ['pipe', 'pipe', 'pipe'],
           detached: false,
-          shell: shell || true,
+          shell: shell,
           env: {
             PATH: process.env.PATH,
             ...this.env
@@ -177,7 +180,7 @@ class ChildProcessWorker {
         {
           // stdio: 'inherit',
           detached: false,
-          shell: shell || true,
+          shell: shell,
           env: {
             PATH: process.env.PATH,
             ...this.env
@@ -271,6 +274,7 @@ class ChildProcessWorker {
 
           const err = new Error('Internal Server Error')
           Reflect.set(err, 'errorString', errorString)
+          Reflect.set(err, 'code', code)
           reject(err)
           // this is wrong, should not crash.
         }
