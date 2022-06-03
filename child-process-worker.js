@@ -141,6 +141,7 @@ class ChildProcessWorker {
     const start = Date.now()
 
     let proc
+    /** @type {string | boolean} */
     let shell = true
     if (process.platform !== 'win32') {
       shell = os.userInfo().shell
