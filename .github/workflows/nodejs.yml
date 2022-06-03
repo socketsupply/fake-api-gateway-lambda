@@ -3,7 +3,7 @@ name: Node CI
 on: [push]
 
 jobs:
-  build:
+  build_on_linux:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -23,3 +23,26 @@ jobs:
       run: npm test
       env:
         GOPATH: /home/runner/work/socketsupply/fake-api-gateway-lambda
+  build_on_windows:
+    runs-on: windows-2022
+    timeout-minutes: 5
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Use Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: 14.x
+    - name: Use Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.16
+    - name: setup go env stuff
+      run: |
+        echo "::set-env name=GOPATH::$(go env GOPATH)"
+        echo "::add-path::$(go env GOPATH)/bin"
+      shell: bash
+    - name: npm install
+      run: npm install && ./node_modules/.bin/npr which tsdocstandard
+    - name: npm test
+      run: npm test
